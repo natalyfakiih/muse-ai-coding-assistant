@@ -87,8 +87,12 @@ def llm_calls(limit: int = Query(50, le=500), db: Session = Depends(get_db)):
         select(LLMCall).order_by(LLMCall.timestamp.desc(), LLMCall.id.desc()).limit(limit)
     ).all()
 
+    from app.llm.client import breaker_status
+
     return {
         "total_calls": total,
+        # Which providers are currently being skipped, and for how long.
+        "breakers": breaker_status(),
         "calls_by_provider": by_provider,
         "successes_by_provider": successes,
         "mean_latency_ms_by_provider": {k: round(v or 0) for k, v in latency.items()},

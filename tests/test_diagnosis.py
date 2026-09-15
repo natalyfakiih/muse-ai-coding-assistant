@@ -103,3 +103,21 @@ def test_an_empty_reply_is_refused(seeded):
 
     response = client.post(f"/api/diff-results/{diff_id}/discuss", json={"explanation": "   "})
     assert response.status_code in (400, 422)
+
+
+# ------------------------------------------------------- reaction memes
+def test_meme_endpoint_splits_fail_and_success(client):
+    """Filenames drive the split, so dropping in 'fail 11.jpg' needs no code
+    change — and a missing pics/ folder must not break the page."""
+    found = client.get("/api/memes").json()
+
+    assert set(found) == {"fail", "success"}
+    assert all(url.startswith("/pics/") for url in found["fail"] + found["success"])
+    # spaces in filenames have to survive as URLs
+    assert all(" " not in url for url in found["fail"]), found["fail"][:2]
+
+
+def test_meme_urls_actually_resolve(client):
+    found = client.get("/api/memes").json()
+    for url in (found["fail"] + found["success"])[:4]:
+        assert client.get(url).status_code == 200, url

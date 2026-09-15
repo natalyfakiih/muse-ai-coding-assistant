@@ -44,6 +44,10 @@ class Settings:
     DIALOGUE_GROQ_MODEL: str = os.getenv("DIALOGUE_GROQ_MODEL", GROQ_FALLBACK_MODEL)
 
     MISTRAL_MAX_RETRIES: int = _int("MISTRAL_MAX_RETRIES", 2)
+    # Circuit breaker: after this many 429s in a row, skip that provider for
+    # the cooldown instead of paying two failed round trips on every call.
+    BREAKER_STRIKES: int = _int("BREAKER_STRIKES", 2)
+    BREAKER_COOLDOWN_SECONDS: int = _int("BREAKER_COOLDOWN_SECONDS", 60)
     MISTRAL_BACKOFF_SECONDS: float = float(os.getenv("MISTRAL_BACKOFF_SECONDS", "1.5"))
     LLM_TIMEOUT_SECONDS: int = _int("LLM_TIMEOUT_SECONDS", 30)
 

@@ -152,6 +152,33 @@ class Interaction(Base):
     specification: Mapped[Specification] = relationship(back_populates="interactions")
 
 
+class GateTurn(Base):
+    """One exchange in the Specification Gate.
+
+    Interactions are keyed to a single specification row, but the gate writes a
+    NEW version almost every turn — so gate dialogue has no stable row to hang
+    off. Keying on (assignment, student) instead keeps the whole conversation
+    together across versions, which is what makes a transcript possible.
+    """
+
+    __tablename__ = "gate_turns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
+    specification_id: Mapped[int | None] = mapped_column(ForeignKey("specifications.id"))
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    student_message: Mapped[str | None] = mapped_column(Text)
+    question: Mapped[str | None] = mapped_column(Text)
+    gap_id: Mapped[str | None] = mapped_column(String(200))
+    # answer | dont_know | override | locked
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, default="answer")
+    # set when the reply did not settle the item and it was asked again
+    shortfall: Mapped[str | None] = mapped_column(Text)
+    version_after: Mapped[int | None] = mapped_column(Integer)
+
+
 class DiffResult(Base):
     __tablename__ = "diff_results"
 

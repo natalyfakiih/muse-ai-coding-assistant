@@ -155,6 +155,18 @@
           </div>
         </div>
         <div class="card">
+          <h2>This session in numbers <span class="right tagline">no AI, just your data</span></h2>
+          <div class="body" id="session-stats"></div>
+        </div>
+
+        <div class="card">
+          <h2>Everything you were asked
+            <span class="right"><button id="transcript-toggle" class="ghost">Show</button></span>
+          </h2>
+          <div class="body tight hidden" id="transcript-body"></div>
+        </div>
+
+        <div class="card">
           <h2>Your AI-dependency profile <span class="right tagline">self-reflection only</span></h2>
           <div class="body" id="profile"></div>
         </div>
@@ -162,6 +174,20 @@
     </div>
   </section>
 </main>
+
+<!-- Reaction overlay: a random image from pics/ on a wrong answer or a failing
+     test, and on getting something right. Click anywhere to dismiss early. -->
+<div id="meme-overlay" class="meme-overlay hidden" role="status" aria-live="polite">
+  <figure class="meme-card">
+    <img id="meme-image" alt="">
+    <figcaption id="meme-caption"></figcaption>
+  </figure>
+</div>
+
+<button id="meme-toggle" class="meme-toggle" aria-pressed="true">
+  <span class="meme-toggle-icon">🎭</span>
+  <span class="meme-toggle-label">Memes on</span>
+</button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
 <script src="/static/js/app.js"></script>

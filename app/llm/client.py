@@ -173,6 +173,70 @@ def is_retryable(exc: Exception) -> bool:
     return any(hint in name for hint in _RETRYABLE_NAME_HINTS)
 
 
+def is_rate_limit(exc: Exception) -> bool:
+    """A 429 specifically, including SDKs that bury it in the message.
+
+    Worth separating from the rest: a 5xx may well succeed a second later, but
+    a provider saying "you are over your requests-per-minute cap" will say the
+    same thing 1.5 seconds later. Retrying that is pure waiting.
+    """
+    if _status_code(exc) == 429:
+        return True
+    text = f"{type(exc).__name__} {exc}".lower()
+    return "429" in text or "rate limit" in text or "rate_limited" in text
+
+
+# --------------------------------------------------------------------------
+# Circuit breaker
+#
+# Mistral's free tier has a single-digit RPM cap, so under classroom load it
+# rate-limits nearly every call. Without this, EVERY request pays two failed
+# round trips plus a backoff sleep before reaching Groq — measured at ~2.6s of
+# pure overhead per call against a ~1.4s useful call. After a couple of 429s in
+# a row the provider is skipped outright for a cooldown, then quietly retried.
+# --------------------------------------------------------------------------
+_breaker: dict[str, dict[str, float]] = {}
+
+
+def _breaker_state(provider: str) -> dict[str, float]:
+    return _breaker.setdefault(provider, {"open_until": 0.0, "strikes": 0.0})
+
+
+def breaker_is_open(provider: str) -> bool:
+    return time.monotonic() < _breaker_state(provider)["open_until"]
+
+
+def _record_rate_limit(provider: str) -> None:
+    state = _breaker_state(provider)
+    state["strikes"] += 1
+    if state["strikes"] >= settings.BREAKER_STRIKES:
+        state["open_until"] = time.monotonic() + settings.BREAKER_COOLDOWN_SECONDS
+        logger.warning(
+            "%s rate-limited %d times in a row — skipping it for %ss",
+            provider, int(state["strikes"]), settings.BREAKER_COOLDOWN_SECONDS,
+        )
+
+
+def _record_success(provider: str) -> None:
+    _breaker[provider] = {"open_until": 0.0, "strikes": 0.0}
+
+
+def reset_breakers() -> None:
+    _breaker.clear()
+
+
+def breaker_status() -> dict[str, dict]:
+    now = time.monotonic()
+    return {
+        provider: {
+            "open": now < state["open_until"],
+            "seconds_left": max(0, round(state["open_until"] - now, 1)),
+            "consecutive_rate_limits": int(state["strikes"]),
+        }
+        for provider, state in _breaker.items()
+    }
+
+
 # --------------------------------------------------------------------------
 # JSON parsing
 # --------------------------------------------------------------------------
@@ -288,7 +352,10 @@ def generate_structured(
         {"role": "user", "content": user_payload},
     ]
 
-    order = [p for p in _provider_order() if _available(p)]
+    available = [p for p in _provider_order() if _available(p)]
+    # Skip a provider we already know is rate-limited, unless it's all we have.
+    order = [p for p in available if not breaker_is_open(p)] or available
+    skipped_primary = bool(available) and order and order[0] != available[0]
     if not order:
         raise NoProviderConfiguredError(
             "No provider configured. Set MISTRAL_API_KEY and/or GROQ_API_KEY, "
@@ -298,9 +365,11 @@ def generate_structured(
     last_error: Exception | None = None
 
     for index, provider in enumerate(order):
-        is_fallback = index > 0
+        # A provider reached only because the primary is in cooldown is still a
+        # fallback, so the ops view keeps telling the truth about what served.
+        is_fallback = index > 0 or skipped_primary
         # Only the primary gets retried — the fallback is already the retry.
-        attempts_allowed = max(1, max_retries) if not is_fallback else 1
+        attempts_allowed = max(1, max_retries) if index == 0 else 1
 
         for attempt in range(attempts_allowed):
             started = time.perf_counter()
@@ -320,21 +389,30 @@ def generate_structured(
                 raise
             except Exception as exc:  # noqa: BLE001 - classified below
                 latency = int((time.perf_counter() - started) * 1000)
+                rate_limited = is_rate_limit(exc)
                 retryable = is_retryable(exc)
                 _log_call(CallRecord(
                     task=task, tier=tier, provider=provider, model=model,
                     latency_ms=latency, success=False, fell_back=is_fallback,
-                    attempts=attempt + 1, error_type=type(exc).__name__,
+                    attempts=attempt + 1,
+                    error_type="RateLimited" if rate_limited else type(exc).__name__,
                     error_detail=str(exc)[:2000],
                 ))
                 last_error = exc
                 if not retryable:
                     raise
+                if rate_limited:
+                    # Over quota. A second attempt 1.5s later hits the same cap,
+                    # so go to the fallback now and stop trying this provider
+                    # for a while — that overhead is otherwise paid per call.
+                    _record_rate_limit(provider)
+                    break
                 if attempt + 1 < attempts_allowed:
                     time.sleep(settings.MISTRAL_BACKOFF_SECONDS * (attempt + 1))
                     continue
                 break  # move to the next provider
             else:
+                _record_success(provider)
                 _log_call(CallRecord(
                     task=task, tier=tier, provider=provider, model=model,
                     latency_ms=int((time.perf_counter() - started) * 1000),

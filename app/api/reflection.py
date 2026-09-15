@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import DiffResult, Specification
-from app.modules import reflection
+from app.modules import reflection, stats
 from app.schemas import ExplanationBody, FlagBody, SubmitBody
 
 router = APIRouter(tags=["reflection-engine"])
@@ -51,6 +51,13 @@ def thread(diff_result_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "No such diff result.")
     return {"diff_result_id": diff_result_id,
             "thread": reflection.diagnosis_thread(db, diff_result_id)}
+
+
+@router.get("/specifications/{specification_id}/session-stats")
+def session_stats(specification_id: int, db: Session = Depends(get_db)):
+    """What actually happened this session, per phase, plus the full transcript.
+    Pure arithmetic over existing rows — no AI calls, so it costs nothing."""
+    return stats.session_stats(db, _spec(db, specification_id))
 
 
 @router.get("/specifications/{specification_id}/submission-status")

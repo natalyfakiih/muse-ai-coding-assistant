@@ -35,12 +35,90 @@ const state = {
   phase: 1,
   maxPhase: 1,
   gateTurns: 0,
+  lastItemsMet: 0,
+  stats: null,
   versionHistory: [],
   phase2Loaded: false,
   editor: null,
   usingFallback: false,
   saveTimer: null,
 };
+
+/* --------------------------------------------------------------- memes */
+const MEME_SECONDS = 3.5;
+const memes = {
+  fail: [], success: [],
+  on: recall("memes") !== "off",   // on unless the student turned it off
+  lastShown: { fail: null, success: null },
+  timer: null,
+};
+
+const FAIL_LINES = ["Not quite.", "Nope.", "That's a no.", "Try again.", "Close, but no."];
+const WIN_LINES = ["Nice.", "Got it.", "That's the one.", "Correct.", "Clean."];
+
+async function loadMemes() {
+  try {
+    const found = await api("/memes");
+    memes.fail = found.fail || [];
+    memes.success = found.success || [];
+  } catch { /* no pics folder — the UI simply never shows one */ }
+  renderMemeToggle();
+}
+
+function renderMemeToggle() {
+  const button = $("meme-toggle");
+  if (!button) return;
+  const available = memes.fail.length + memes.success.length > 0;
+  button.classList.toggle("hidden", !available);
+  button.setAttribute("aria-pressed", String(memes.on));
+  button.querySelector(".meme-toggle-label").textContent =
+    memes.on ? "Memes on" : "Memes off";
+  button.title = memes.on ? "Click to turn reaction memes off"
+                          : "Click to turn reaction memes on";
+}
+
+/* Random, but never the same one twice in a row — repeats kill the joke. */
+function pickMeme(kind) {
+  const pool = memes[kind] || [];
+  if (!pool.length) return null;
+  if (pool.length === 1) return pool[0];
+  let choice;
+  do { choice = pool[Math.floor(Math.random() * pool.length)]; }
+  while (choice === memes.lastShown[kind]);
+  memes.lastShown[kind] = choice;
+  return choice;
+}
+
+function showMeme(kind, caption) {
+  if (!memes.on) return;
+  const source = pickMeme(kind);
+  if (!source) return;
+
+  const overlay = $("meme-overlay");
+  const lines = kind === "fail" ? FAIL_LINES : WIN_LINES;
+  $("meme-image").src = source;
+  $("meme-image").alt = kind === "fail" ? "fail reaction" : "success reaction";
+  $("meme-caption").textContent = caption || lines[Math.floor(Math.random() * lines.length)];
+  overlay.className = `meme-overlay ${kind}`;
+
+  clearTimeout(memes.timer);
+  memes.timer = setTimeout(hideMeme, MEME_SECONDS * 1000);
+}
+
+function hideMeme() {
+  const overlay = $("meme-overlay");
+  if (overlay.classList.contains("hidden")) return;
+  clearTimeout(memes.timer);
+  overlay.classList.add("leaving");
+  setTimeout(() => { overlay.className = "meme-overlay hidden"; }, 300);
+}
+
+function toggleMemes() {
+  memes.on = !memes.on;
+  remember("memes", memes.on ? "on" : "off");
+  if (!memes.on) hideMeme();
+  renderMemeToggle();
+}
 
 /* ---------------------------------------------------------------- utils */
 function banner(text, kind = "") {
@@ -289,6 +367,8 @@ async function loadSpecification() {
   state.locked = data.locked;
   state.askCounts = data.gap_ask_counts || {};
   state.versionHistory = data.version_history || [];
+  state.lastItemsMet = data.rubric_status
+    ? data.rubric_status.filter((i) => i.met).length : 0;
   state.gateTurns = 0;
   state.phase2Loaded = false;
   state.submission = null;
@@ -342,8 +422,16 @@ async function sendGateMessage() {
     renderRubric(result.rubric_status);
     renderOptions(null);
 
-    // The same question coming back means the last answer didn't settle it.
-    // Say so in the conversation rather than only nudging a counter in the rubric.
+    // Wrong or incomplete -> fail meme; another rubric item answered -> success.
+    if (result.shortfall) {
+      showMeme("fail");
+    } else if (result.locked) {
+      showMeme("success", "Specification locked.");
+    } else if ((result.items_met || 0) > (state.lastItemsMet || 0)) {
+      showMeme("success");
+    }
+    state.lastItemsMet = result.items_met || 0;
+
     if (result.shortfall) {
       bubble($("gate-messages"), "muse", result.shortfall).classList.add("shortfall");
     }
@@ -379,6 +467,7 @@ async function forceLock() {
       body: JSON.stringify({ student_id: state.studentId, gap_id: state.currentGap?.id || null }),
     });
     bubble($("gate-messages"), "system", result.message);
+    if ((result.message || "").includes("can't be waived")) showMeme("fail");
     state.currentGap = result.gap || null;
     if (result.gap) state.askCounts[result.gap.id] = result.asks_on_gap;
     renderSpec(result.content, $("spec-sheet"));
@@ -604,6 +693,8 @@ async function restoreSubmission() {
     };
     state.finalized = Boolean(status.finalized_at);
     renderSubmission(state.submission);
+    loadProfile();
+    loadSessionStats();
     document.querySelectorAll(".phase").forEach((tab) => {
       const n = Number(tab.dataset.phase);
       tab.setAttribute("aria-disabled", String(!reachable(n)));
@@ -619,10 +710,17 @@ async function submitForReflection() {
       method: "POST", body: JSON.stringify({ code: getEditorValue() }),
     });
     state.submission = result;
+    // At least one case failed -> fail. Everything green -> success.
+    if (result.diff_results.length) {
+      showMeme("fail", `${result.cases_run - result.cases_passed} of ${result.cases_run} cases failed`);
+    } else if (result.cases_run > 0) {
+      showMeme("success", `All ${result.cases_run} cases passed`);
+    }
     banner("");
     phase(3);
     renderSubmission(result);
     loadProfile();
+    loadSessionStats();
   } catch (error) {
     banner(error.message, "bad");
   } finally {
@@ -732,8 +830,10 @@ async function saveExplanation(diffId) {
     card.classList.add("explained");
     status.textContent = "saved";
     refreshStatus();
+    loadSessionStats();
   } catch (error) {
     status.textContent = error.message;
+    showMeme("fail");
   }
 }
 
@@ -751,10 +851,93 @@ async function finalize() {
     banner(`Submission accepted at ${new Date(result.finalized_at).toLocaleString()}.`, "ok");
     $("finalize").disabled = true;
     state.finalized = true;
+    showMeme("success", "Submission accepted.");
     phase(3);
   } catch (error) {
     banner(error.message, "bad");
   }
+}
+
+/* --------------------------------------------------------- session stats */
+const fmtTime = (seconds) => {
+  if (seconds == null) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  return m < 60 ? `${m}m ${seconds % 60}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
+};
+
+const statLine = (label, value, tone = "") =>
+  `<div class="stat-line ${tone}"><span class="k">${escapeHtml(label)}</span>
+   <span class="dots"></span><span class="v">${escapeHtml(String(value))}</span></div>`;
+
+const statGroup = (title, lines) =>
+  `<div class="stat-group"><h4>${escapeHtml(title)}</h4>
+   <div class="stat-lines">${lines.join("")}</div></div>`;
+
+async function loadSessionStats() {
+  let data;
+  try {
+    data = await api(`/specifications/${state.specId}/session-stats`);
+  } catch {
+    $("session-stats").innerHTML = `<p class="tagline">Statistics unavailable.</p>`;
+    return;
+  }
+  state.stats = data;
+  const { phase1: one, phase2: two, phase3: three } = data;
+
+  $("session-stats").innerHTML = [
+    statGroup("Specification", [
+      statLine("Versions written", one.versions),
+      statLine("Questions MUSE asked", one.questions_asked),
+      statLine("Answers that needed a second go", one.asked_again,
+               one.asked_again > 2 ? "warn" : ""),
+      statLine("\u201cI don't know\u201d presses", one.dont_know_presses),
+      statLine("Answers you put on record", one.answers_on_record),
+      statLine("Time to lock", fmtTime(one.seconds)),
+    ]),
+    statGroup("While coding", [
+      statLine("Questions you asked", two.questions_asked),
+      statLine("  of those, factual", two.factual),
+      statLine("  of those, about your own code", two.problem_solving),
+      statLine("Counter-questions you got back", two.counter_questions),
+      statLine("Direct hints taken", two.direct_hints, two.direct_hints ? "warn" : "good"),
+      statLine("Longest run on one issue", `${two.longest_thread} rounds`),
+      statLine("Time coding", fmtTime(two.seconds)),
+    ]),
+    statGroup("Reflection", [
+      statLine("Submissions", three.submissions, three.submissions > 1 ? "warn" : ""),
+      statLine("Cases that failed", three.cases_failed,
+               three.cases_failed ? "bad" : "good"),
+      ...Object.entries(three.by_category).map(([k, v]) => statLine(`  ${k}`, v)),
+      statLine("Diagnosis rounds", three.diagnosis_rounds),
+      statLine("Explanations written", three.explanations_written),
+    ]),
+    statGroup("Overall", [
+      statLine("Questions MUSE asked you", data.totals.ai_questions),
+      statLine("Messages you sent", data.totals.student_messages),
+    ]),
+  ].join("");
+
+  renderTranscript(data.transcript);
+}
+
+function renderTranscript(entries) {
+  const box = $("transcript-body");
+  if (!entries || !entries.length) {
+    box.innerHTML = `<div class="body tagline">Nothing recorded.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="transcript-list">${entries.map((e) => `
+    <div class="entry">
+      <div class="who">
+        <span class="phase-pill p${e.phase}">phase ${e.phase}</span>
+        <span>${escapeHtml(e.tag || "")}</span>
+        ${e.about ? `<span>· ${escapeHtml(e.about)}</span>` : ""}
+      </div>
+      ${e.student ? `<div class="said">${escapeHtml(e.student)}</div>` : ""}
+      ${e.note ? `<div class="why">${escapeHtml(e.note)}</div>` : ""}
+      ${e.muse ? `<div class="asked">${escapeHtml(e.muse)}</div>` : ""}
+    </div>`).join("")}</div>`;
 }
 
 async function loadProfile() {
@@ -791,6 +974,7 @@ async function checkProviders() {
 
 async function boot() {
   await checkProviders();
+  await loadMemes();
   const [students, assignments] = await Promise.all([
     api("/students"), api("/assignments"),
   ]);
@@ -828,6 +1012,14 @@ $("assignment").addEventListener("change", (e) => {
 $("gate-send").addEventListener("click", sendGateMessage);
 $("gate-lock").addEventListener("click", forceLock);
 $("gate-dont-know").addEventListener("click", dontKnow);
+$("meme-toggle").addEventListener("click", toggleMemes);
+$("transcript-toggle").addEventListener("click", () => {
+  const body = $("transcript-body");
+  const hidden = body.classList.toggle("hidden");
+  $("transcript-toggle").textContent = hidden ? "Show" : "Hide";
+});
+$("meme-overlay").addEventListener("click", hideMeme);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideMeme(); });
 $("gate-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendGateMessage(); }
 });

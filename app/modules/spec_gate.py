@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.llm import CLASSIFICATION, DIALOGUE, generate_structured
 from app.llm import prompts
-from app.models import Assignment, Specification
+from app.models import Assignment, GateTurn, Specification
 
 EMPTY_SPEC: dict = {
     "goal": "",
@@ -553,6 +553,7 @@ def advance(db: Session, spec: Specification, message: str) -> dict:
                    _pending_rubric(rubric, working.confirmed_gaps, working.content))
 
     if gap is None:
+        _record_turn(db, working, kind="locked", student_message=message)
         return _lock(db, working)
 
     gap_id = str(gap["id"])
@@ -577,6 +578,8 @@ def advance(db: Session, spec: Specification, message: str) -> dict:
     elif asks > 1 and not shortfall:
         shortfall = _fallback_shortfall(gap, working.content)
 
+    _record_turn(db, working, kind="answer", student_message=message,
+                 question=question, gap=gap, shortfall=shortfall)
     db.commit()
     db.refresh(working)
     return _result(
@@ -683,6 +686,8 @@ def force_lock(db: Session, spec: Specification, gap_id: str | None = None) -> d
     spec.gap_ask_counts = new_counts
     question = generate_clarifying_question(gap, spec.content)["question"]
     spec.last_question = question
+    _record_turn(db, spec, kind="override", student_message="My answer stands",
+                 question=question, gap=gap)
 
     db.commit()
     db.refresh(spec)
@@ -733,6 +738,8 @@ def dont_know(db: Session, spec: Specification) -> dict:
     question = (help_payload["question"]
                 or generate_clarifying_question(gap, spec.content)["question"])
     spec.last_question = question
+    _record_turn(db, spec, kind="dont_know", student_message="I don't know",
+                 question=question, gap=gap)
 
     db.commit()
     db.refresh(spec)
@@ -744,6 +751,28 @@ def dont_know(db: Session, spec: Specification) -> dict:
         options=help_payload["options"],
         message=None,
     )
+
+
+def _record_turn(db: Session, spec: Specification, *, kind: str,
+                 student_message: str | None = None, question: str | None = None,
+                 gap: dict | None = None, shortfall: str | None = None) -> None:
+    """Keep the gate conversation, not just its outcome.
+
+    The versions show WHAT the specification became; only the turns show what
+    was asked and what the student said — which is what the student sees in
+    their reflection summary and the instructor sees in the transcript.
+    """
+    db.add(GateTurn(
+        assignment_id=spec.assignment_id,
+        student_id=spec.student_id,
+        specification_id=spec.id,
+        student_message=student_message,
+        question=question,
+        gap_id=str((gap or {}).get("id")) if gap else None,
+        kind=kind,
+        shortfall=shortfall,
+        version_after=spec.version,
+    ))
 
 
 def _pending_rubric(rubric: list[dict], confirmed: list | None,

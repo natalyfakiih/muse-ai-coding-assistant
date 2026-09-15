@@ -12,6 +12,7 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -33,6 +34,12 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 logger = logging.getLogger("muse")
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
+PICS = Path(__file__).resolve().parent.parent / "pics"
+
+# Reaction images, grouped by how the filename starts. Scanned at request time
+# rather than hardcoded, so dropping another "fail 11.jpg" into pics/ is all it
+# takes — no code change, no restart.
+MEME_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
 # Provider-call logging runs on its own thread. Writing inline would put a
@@ -171,6 +178,27 @@ async def _lookup_error(request: Request, exc: LookupError):
 
 
 # --------------------------------------------------------------------------
+@app.get("/api/memes")
+def memes():
+    """Which reaction images exist, split into fail and success.
+
+    Returns URLs the browser can use directly. An empty list is a normal
+    answer — the UI just shows nothing — so a missing pics/ folder never
+    breaks the page.
+    """
+    buckets: dict[str, list[str]] = {"fail": [], "success": []}
+    if PICS.is_dir():
+        for path in sorted(PICS.iterdir()):
+            if not path.is_file() or path.suffix.lower() not in MEME_EXTENSIONS:
+                continue
+            name = path.name.lower()
+            bucket = "fail" if name.startswith("fail") else (
+                "success" if name.startswith("success") else None)
+            if bucket:
+                buckets[bucket].append(f"/pics/{quote(path.name)}")
+    return buckets
+
+
 @app.get("/api/health")
 def health():
     return {
@@ -185,6 +213,11 @@ def health():
         "escape_hatch_rounds": settings.TUTOR_ESCAPE_HATCH_ROUNDS,
     }
 
+
+if PICS.is_dir():
+    # Filenames contain spaces ("fail 1.jpg"); StaticFiles handles the
+    # percent-encoding the /api/memes URLs already apply.
+    app.mount("/pics", StaticFiles(directory=str(PICS)), name="pics")
 
 if FRONTEND.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")

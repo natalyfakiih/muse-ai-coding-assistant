@@ -49,7 +49,10 @@ def test_mistral_serves_when_healthy(monkeypatch):
     assert calls == ["mistral"]
 
 
-def test_rate_limit_retries_then_falls_back_to_groq(monkeypatch):
+def test_rate_limit_falls_straight_over_to_groq(monkeypatch):
+    """A 429 gets no retry. Measured against a real free-tier key, retrying it
+    cost a failed round trip plus a 1.5s sleep on every single call, and the
+    second attempt hit the same cap every time."""
     calls = []
 
     def mistral(messages, model):
@@ -63,8 +66,7 @@ def test_rate_limit_retries_then_falls_back_to_groq(monkeypatch):
     wire(monkeypatch, mistral, groq)
     result = llm.generate_structured("s", "u", "{}", max_retries=2)
     assert result["via"] == "groq"
-    # two quick attempts at Mistral, then straight to Groq — not 30s of retries
-    assert calls == ["mistral", "mistral", "groq"]
+    assert calls == ["mistral", "groq"]
 
 
 @pytest.mark.parametrize("error", [RateLimited, ServerError, Timeout])
@@ -165,3 +167,128 @@ def test_retryability_classification():
     assert llm.is_retryable(Timeout("x")) is True
     assert llm.is_retryable(BadRequest("x")) is False
     assert llm.is_retryable(ValueError("x")) is False
+
+
+# --------------------------------------------------------------------------
+# Rate limiting — measured cause of a 2.9x slowdown against a free-tier key
+# --------------------------------------------------------------------------
+class SDKError(Exception):
+    """Shape mistralai actually raises: the 429 is only in the message."""
+    def __init__(self):
+        super().__init__('API error occurred: Status 429. Body: '
+                         '{"message":"Rate limit exceeded","type":"rate_limited"}')
+
+
+@pytest.fixture(autouse=True)
+def _clean_breakers():
+    llm.reset_breakers()
+    yield
+    llm.reset_breakers()
+
+
+def test_a_429_buried_in_the_message_is_still_a_rate_limit():
+    assert llm.is_rate_limit(SDKError()) is True
+    assert llm.is_rate_limit(RateLimited("429")) is True
+    assert llm.is_rate_limit(ServerError("503")) is False
+
+
+def test_a_rate_limited_primary_fails_over_immediately(monkeypatch):
+    """No second attempt and no backoff: the cap will say the same thing 1.5s
+    later, and that wait was 1.5s of every single request."""
+    calls = []
+    slept = []
+    monkeypatch.setattr(llm.time, "sleep", lambda s: slept.append(s))
+
+    def mistral(messages, model):
+        calls.append("mistral")
+        raise SDKError()
+
+    wire(monkeypatch, mistral, lambda m, model: calls.append("groq") or '{"ok": true}')
+    assert llm.generate_structured("s", "u", "{}", max_retries=2)["ok"] is True
+
+    assert calls == ["mistral", "groq"], "one attempt, then straight to the fallback"
+    assert slept == [], "no backoff on a rate limit"
+
+
+def test_a_5xx_still_gets_its_retry(monkeypatch):
+    """The distinction matters: a 503 may well succeed a moment later."""
+    calls = []
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+
+    def mistral(messages, model):
+        calls.append("mistral")
+        raise ServerError("503")
+
+    wire(monkeypatch, mistral, lambda m, model: calls.append("groq") or '{"ok": true}')
+    llm.generate_structured("s", "u", "{}", max_retries=2)
+    assert calls == ["mistral", "mistral", "groq"]
+
+
+def test_repeated_rate_limits_open_the_breaker_and_skip_the_primary(monkeypatch):
+    calls = []
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+
+    def mistral(messages, model):
+        calls.append("mistral")
+        raise SDKError()
+
+    wire(monkeypatch, mistral, lambda m, model: calls.append("groq") or '{"ok": true}')
+
+    for _ in range(4):
+        llm.generate_structured("s", "u", "{}")
+
+    # Two strikes open the breaker; the remaining calls skip Mistral entirely.
+    assert calls.count("mistral") == 2, f"primary should stop being tried: {calls}"
+    assert calls.count("groq") == 4
+    assert llm.breaker_is_open("mistral") is True
+
+
+def test_a_skipped_primary_is_still_reported_as_a_fallback(monkeypatch):
+    """The ops view has to keep telling the truth about what served the call."""
+    records = []
+    llm.register_call_logger(records.append)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    wire(monkeypatch,
+         lambda m, model: (_ for _ in ()).throw(SDKError()),
+         lambda m, model: '{"ok": true}')
+
+    for _ in range(3):
+        llm.generate_structured("s", "u", "{}")
+
+    served = [r for r in records if r.success]
+    assert all(r.provider == "groq" and r.fell_back for r in served)
+
+
+def test_the_breaker_reopens_the_primary_after_the_cooldown(monkeypatch):
+    """A cooldown, not a write-off — the cap resets and so should we."""
+    monkeypatch.setattr(llm.settings, "BREAKER_COOLDOWN_SECONDS", 0)
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    calls = []
+
+    def mistral(messages, model):
+        calls.append("mistral")
+        raise SDKError()
+
+    wire(monkeypatch, mistral, lambda m, model: '{"ok": true}')
+    for _ in range(3):
+        llm.generate_structured("s", "u", "{}")
+
+    assert calls.count("mistral") == 3, "a zero cooldown means always retry"
+
+
+def test_a_successful_call_clears_the_strikes(monkeypatch):
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)
+    state = {"fail": True}
+
+    def mistral(messages, model):
+        if state["fail"]:
+            raise SDKError()
+        return '{"ok": true}'
+
+    wire(monkeypatch, mistral, lambda m, model: '{"ok": true}')
+    llm.generate_structured("s", "u", "{}")
+    state["fail"] = False
+    llm.generate_structured("s", "u", "{}")
+
+    assert llm.breaker_is_open("mistral") is False
+    assert llm.breaker_status()["mistral"]["consecutive_rate_limits"] == 0
