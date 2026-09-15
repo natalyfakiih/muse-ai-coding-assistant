@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUSE — student</title>
+<link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">M<span>U</span>SE</div>
+  <div class="tagline">specify · implement · reflect</div>
+  <div class="spacer"></div>
+  <label class="tagline" for="student">student</label>
+  <select id="student"></select>
+  <label class="tagline" for="assignment">assignment</label>
+  <select id="assignment"></select>
+  <a href="/instructor" class="tagline">instructor view →</a>
+</header>
+
+<nav class="phases">
+  <button class="phase active" data-phase="1"><span class="num">1</span> Specification</button>
+  <button class="phase" data-phase="2"><span class="num">2</span> Guided implementation</button>
+  <button class="phase" data-phase="3"><span class="num">3</span> Reflection</button>
+  <span class="phase-hint" id="phase-hint"></span>
+</nav>
+
+<main>
+  <div id="banner" class="banner hidden"></div>
+
+  <!-- ================= PHASE 1 ================= -->
+  <section id="phase-1" class="cols two">
+    <div class="card">
+      <h2>Specification gate
+        <span class="right tagline" id="gate-status">draft</span>
+      </h2>
+      <div class="body tight chat">
+        <div class="messages" id="gate-messages"></div>
+        <div id="gate-locked-notice" class="locked-notice hidden">
+          <strong>This specification is locked.</strong>
+          Your code is checked against exactly this at the end, so it can't be
+          edited once you've started coding — that's what makes drift
+          measurable. You can read it and your version history here any time.
+        </div>
+        <div id="gate-options" class="options hidden"></div>
+        <div class="composer">
+          <textarea id="gate-input" rows="2"
+            placeholder="Describe what you're going to build, in your own words…"></textarea>
+          <div class="composer-buttons">
+            <button class="primary" id="gate-send">Send</button>
+            <button id="gate-dont-know" title="Explains what the question is asking — it won't answer it for you">I don't know</button>
+          </div>
+        </div>
+        <div class="hint-bar">
+          <span id="gate-hint">The editor unlocks once every rubric item is answered.</span>
+          <button id="gate-lock" class="ghost hidden">My answer stands — move on</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div class="card">
+        <h2>Assignment</h2>
+        <div class="body" id="assignment-prompt"></div>
+      </div>
+      <div class="card">
+        <h2>Rubric <span class="right tagline" id="rubric-count"></span></h2>
+        <div class="body">
+          <div class="progress"><span id="progress-fill"></span></div>
+          <ul class="rubric" id="rubric"></ul>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Your specification <span class="right tagline" id="spec-version"></span></h2>
+        <div class="body" id="spec-sheet"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PHASE 2 ================= -->
+  <section id="phase-2" class="cols editor hidden">
+    <div class="card">
+      <h2>Your editor
+        <span class="right tagline">autocomplete and inline suggestions are off</span>
+      </h2>
+      <div class="body tight">
+        <div id="editor"></div>
+        <textarea id="editor-fallback" class="hidden" spellcheck="false"></textarea>
+      </div>
+      <div class="editor-note">
+        <span class="dot"></span>
+        <span id="save-state">saved</span>
+        <span class="spacer" style="flex:1"></span>
+        <button id="submit-code" class="primary">Submit for reflection</button>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div class="card">
+        <h2>Tutor <span class="right tagline" id="thread-state"></span></h2>
+        <div class="body tight chat">
+          <div class="messages" id="tutor-messages"></div>
+          <div class="composer">
+            <textarea id="tutor-input" rows="2" placeholder="Ask about Python, or about where you're stuck…"></textarea>
+            <button class="primary" id="tutor-send">Ask</button>
+          </div>
+          <div class="hint-bar">
+            <span id="tutor-hint">Questions about your own code get a counter-question, not a fix.</span>
+            <button id="escape-hatch" disabled>Give me a direct hint</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Locked specification</h2>
+        <div class="body" id="spec-sheet-locked"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PHASE 3 ================= -->
+  <section id="phase-3" class="hidden">
+    <div id="no-submission" class="card hidden" style="margin-bottom:16px">
+      <h2>Nothing submitted yet</h2>
+      <div class="body">
+        <p class="tagline" style="margin-top:0">
+          Reflection runs your code against the specification you locked. Submit
+          from the editor to see what matches and what doesn't.
+        </p>
+        <button class="primary" data-goto="2">Go to the editor</button>
+      </div>
+    </div>
+    <div class="cols two" id="submission-view">
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="card">
+          <h2>Discrepancies to explain <span class="right tagline" id="diff-count"></span></h2>
+          <div class="body" id="diffs"></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="card">
+          <h2>Behavioral diff <span class="right tagline" id="case-summary"></span></h2>
+          <div class="body tight" id="cases"></div>
+        </div>
+        <div class="card">
+          <h2>Submission</h2>
+          <div class="body">
+            <p class="tagline" id="finalize-note" style="margin-top:0">
+              Every discrepancy needs an explanation in your own words before this
+              submission is accepted.
+            </p>
+            <button id="finalize" class="primary" disabled>Finalize submission</button>
+            <button class="ghost" data-goto="2">Back to the editor</button>
+            <button class="ghost" data-goto="1">View my specification</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Your AI-dependency profile <span class="right tagline">self-reflection only</span></h2>
+          <div class="body" id="profile"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

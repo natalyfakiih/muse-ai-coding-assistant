@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUSE — instructor</title>
+<link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">M<span>U</span>SE</div>
+  <div class="tagline">instructor dashboard</div>
+  <div class="spacer"></div>
+  <label class="tagline" for="course">course</label>
+  <select id="course"><option value="CS101">CS101</option></select>
+  <button id="refresh">Refresh</button>
+  <a href="/" class="tagline">← student view</a>
+</header>
+
+<main>
+  <div id="banner" class="banner hidden"></div>
+
+  <div class="card" style="margin-bottom:16px">
+    <h2>Class at a glance</h2>
+    <div class="body"><div class="stat-row" id="stats"></div></div>
+  </div>
+
+  <div class="cols two" style="margin-bottom:16px">
+    <div class="card">
+      <h2>Where the class diverged from its own specifications
+        <span class="right tagline">group-by, no AI</span></h2>
+      <div class="body tight">
+        <table>
+          <thead><tr>
+            <th>Specification item</th><th>Category</th>
+            <th class="num">Students</th><th>Share of class</th>
+          </tr></thead>
+          <tbody id="patterns"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Provider log <span class="right tagline">mistral → groq fallback</span></h2>
+      <div class="body tight">
+        <div class="body"><div class="stat-row" id="provider-stats"></div></div>
+        <div class="scroll-360"><table>
+          <thead><tr><th>Task</th><th>Provider</th><th class="num">ms</th><th>Result</th></tr></thead>
+          <tbody id="provider-log"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cols two">
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div class="card">
+        <h2>Students</h2>
+        <div class="body tight">
+          <table>
+            <thead><tr><th>Name</th><th>Cohort</th><th class="num">Spec versions</th><th class="num">Questions</th><th class="num">Discrepancies</th></tr></thead>
+            <tbody id="students"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Interaction transcript <span class="right tagline" id="transcript-who"></span></h2>
+        <div class="body tight transcript" id="transcript"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <div class="card">
+        <h2>Narrative summary <span class="right tagline">on demand — one call</span></h2>
+        <div class="body">
+          <button id="summarize" disabled>Generate for selected student</button>
+          <p id="summary" class="tagline"></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Specification history</h2>
+        <div class="body tight scroll-480" id="spec-history"></div>
+      </div>
+
+      <div class="card">
+        <h2>Discrepancies &amp; student explanations</h2>
+        <div class="body" id="student-diffs"></div>
+      </div>
+
+      <div class="card">
+        <h2>Dependency-profile visibility</h2>
+        <div class="body">
+          <p class="tagline" style="margin-top:0">
+            Student-facing by default. Instructor visibility is a per-course opt-in
+            stored in the data model, not a toggle on this page — with it off, the
+            API refuses an instructor read.
+          </p>
+          <select id="visibility">
+            <option value="student_only">student_only (default)</option>
+            <option value="instructor_opt_in">instructor_opt_in</option>
+          </select>
+          <button id="save-visibility">Save</button>
+          <span class="tagline" id="visibility-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/static/js/instructor.js"></script>
+</body>
+</html>

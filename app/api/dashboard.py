@@ -1,0 +1,108 @@
+"""Section 6.4 — Instructor Dashboard endpoints, plus the provider-fallback
+operations view (Section 4 of the build plan: log every provider used per call)."""
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.db import get_db
+from app.models import LLMCall
+from app.modules import dashboard, profiler
+from app.schemas import VisibilityBody
+
+router = APIRouter(tags=["instructor-dashboard"])
+
+
+@router.get("/courses/{course_id}/students/{student_id}/overview")
+def student_overview(course_id: str, student_id: int, db: Session = Depends(get_db)):
+    try:
+        return dashboard.student_overview(db, course_id, student_id)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/courses/{course_id}/analytics/class-patterns")
+def class_patterns(course_id: str, db: Session = Depends(get_db)):
+    return dashboard.class_patterns(db, course_id)
+
+
+@router.get("/students/{student_id}/narrative-summary")
+def narrative_summary(student_id: int, db: Session = Depends(get_db)):
+    """On-demand only — a button click, never automatic. Dialogue tier."""
+    try:
+        return dashboard.narrative_summary(db, student_id)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/students/{student_id}/dependency-profile")
+def dependency_profile(
+    student_id: int,
+    viewer: str = Query("student", pattern="^(student|instructor)$"),
+    db: Session = Depends(get_db),
+):
+    try:
+        return profiler.profile(db, student_id, viewer=viewer)
+    except profiler.ProfileNotVisible as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.put("/courses/{course_id}/settings/dependency-profile-visibility")
+def set_visibility(course_id: str, body: VisibilityBody, db: Session = Depends(get_db)):
+    return {"course_id": course_id,
+            "visibility": profiler.set_visibility(db, course_id, body.visibility)}
+
+
+@router.get("/ops/llm-calls")
+def llm_calls(limit: int = Query(50, le=500), db: Session = Depends(get_db)):
+    """Read this before the demo. If Groq is absorbing most of a burst, that is
+    Mistral's free-tier RPM cap biting — expected, and exactly what the fallback
+    is there for."""
+    from app.main import flush_call_log
+
+    flush_call_log(2.0)  # settle the background writer before reading
+
+    by_provider = dict(db.execute(
+        select(LLMCall.provider, func.count(LLMCall.id)).group_by(LLMCall.provider)
+    ).all())
+    successes = dict(db.execute(
+        select(LLMCall.provider, func.count(LLMCall.id))
+        .where(LLMCall.success.is_(True)).group_by(LLMCall.provider)
+    ).all())
+    latency = dict(db.execute(
+        select(LLMCall.provider, func.avg(LLMCall.latency_ms))
+        .where(LLMCall.success.is_(True)).group_by(LLMCall.provider)
+    ).all())
+    by_task = dict(db.execute(
+        select(LLMCall.task, func.count(LLMCall.id)).group_by(LLMCall.task)
+    ).all())
+
+    total = sum(by_provider.values())
+    fell_back = db.scalar(select(func.count(LLMCall.id)).where(LLMCall.fell_back.is_(True))) or 0
+
+    recent = db.scalars(
+        select(LLMCall).order_by(LLMCall.timestamp.desc(), LLMCall.id.desc()).limit(limit)
+    ).all()
+
+    return {
+        "total_calls": total,
+        "calls_by_provider": by_provider,
+        "successes_by_provider": successes,
+        "mean_latency_ms_by_provider": {k: round(v or 0) for k, v in latency.items()},
+        "calls_by_task": by_task,
+        "fallback_calls": fell_back,
+        "fallback_rate": round(fell_back / total, 3) if total else 0.0,
+        "recent": [
+            {
+                "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+                "task": row.task, "tier": row.tier, "provider": row.provider,
+                "model": row.model, "latency_ms": row.latency_ms,
+                "success": row.success, "fell_back": row.fell_back,
+                "attempts": row.attempts, "error_type": row.error_type,
+            }
+            for row in recent
+        ],
+    }
