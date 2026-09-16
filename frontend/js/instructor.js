@@ -1,5 +1,7 @@
-/* MUSE instructor client. Read-only over data that already exists; the only
-   AI call on this page is the narrative summary, behind a button. */
+/* MUSE instructor client. Read-only over data that already exists, except for
+   two writes: the narrative summary (behind a button) and — added below —
+   creating a new exercise, which is the one action that changes what
+   students see on their own page. */
 
 const $ = (id) => document.getElementById(id);
 const api = async (path, options = {}) => {
@@ -15,7 +17,7 @@ const escapeHtml = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const state = { courseId: "CS101", studentId: null };
+const state = { courseId: "CS101", studentId: null, assignmentId: null, overview: null };
 
 function banner(text, kind = "") {
   const element = $("banner");
@@ -25,6 +27,10 @@ function banner(text, kind = "") {
 }
 
 const stat = (n, label) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`;
+const truncate = (text, n) => {
+  const value = String(text ?? "");
+  return value.length > n ? `${value.slice(0, n - 1)}…` : value;
+};
 
 /* ------------------------------------------------------------- class view */
 async function loadClass() {
@@ -90,7 +96,7 @@ async function loadStudents() {
   }));
 
   $("students").innerHTML = rows.map((row) => `
-    <tr data-student="${row.id}" style="cursor:pointer">
+    <tr data-student="${row.id}">
       <td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.cohort || "")}</td>
       <td class="num">${row.versions}</td><td class="num">${row.questions}</td>
       <td class="num">${row.diffs}</td>
@@ -106,15 +112,50 @@ async function loadStudents() {
 
 async function selectStudent(studentId) {
   state.studentId = studentId;
+  state.assignmentId = null;
   $("summarize").disabled = false;
   $("summary").textContent = "";
 
+  document.querySelectorAll("#students [data-student]").forEach((tr) => {
+    tr.classList.toggle("selected", Number(tr.dataset.student) === studentId);
+  });
+
   const overview = await api(`/courses/${state.courseId}/students/${studentId}/overview`);
+  state.overview = overview;
   $("transcript-who").textContent = overview.student.name;
-  // Show the assignment the student actually worked on, not blindly the first.
-  const assignment =
-    overview.assignments.find((a) => a.diff_results.length || a.interactions.length) ||
-    overview.assignments[0];
+
+  const assignmentSelect = $("assignment");
+  const hasWork = overview.assignments.length > 0;
+  $("assignment-label").style.display = hasWork ? "" : "none";
+  assignmentSelect.classList.toggle("hidden", !hasWork);
+
+  if (!hasWork) {
+    assignmentSelect.innerHTML = "";
+    $("transcript").innerHTML = `<div class="body tagline">No work yet.</div>`;
+    $("spec-history").innerHTML = `<div class="body tagline">—</div>`;
+    $("student-diffs").innerHTML = `<p class="tagline">—</p>`;
+    return;
+  }
+
+  // This student's assignments, in the order they appear on their own
+  // dropdown — same ordering the student sees on their own page.
+  const sorted = [...overview.assignments].sort((a, b) => a.assignment_id - b.assignment_id);
+  assignmentSelect.innerHTML = sorted.map((a) => `
+    <option value="${a.assignment_id}">
+      ${escapeHtml(truncate(a.assignment_prompt, 46))}${a.locked_specification_id ? "" : " (in progress)"}
+    </option>`).join("");
+
+  // Default to the assignment the student actually worked on, not blindly the first.
+  const defaultAssignment =
+    sorted.find((a) => a.diff_results.length || a.interactions.length) || sorted[0];
+  assignmentSelect.value = String(defaultAssignment.assignment_id);
+  renderAssignment(defaultAssignment.assignment_id);
+}
+
+function renderAssignment(assignmentId) {
+  state.assignmentId = assignmentId;
+  const assignment = (state.overview?.assignments || [])
+    .find((a) => a.assignment_id === assignmentId);
 
   if (!assignment) {
     $("transcript").innerHTML = `<div class="body tagline">No work yet.</div>`;
@@ -166,7 +207,8 @@ async function summarize() {
   $("summarize").disabled = true;
   $("summary").textContent = "generating…";
   try {
-    const result = await api(`/students/${state.studentId}/narrative-summary`);
+    const query = state.assignmentId ? `?assignment_id=${state.assignmentId}` : "";
+    const result = await api(`/students/${state.studentId}/narrative-summary${query}`);
     $("summary").textContent = result.summary;
   } catch (error) {
     $("summary").textContent = error.message;
@@ -187,9 +229,224 @@ async function saveVisibility() {
   }
 }
 
+/* ---------------------------------------------------------- add exercise
+   A checklist row per specification requirement (the Gate walks these one
+   at a time). No "field" is exposed here — spec_gate infers goal / inputs /
+   outputs / examples from the wording itself, so the instructor just writes
+   plain-language criteria the way the seeded assignments read. */
+function addRubricRow(value = "") {
+  const row = document.createElement("div");
+  row.className = "rubric-row";
+  row.innerHTML = `
+    <input type="text" class="rubric-item" placeholder="e.g. must state the behavior when n = 0">
+    <button type="button" class="row-remove" aria-label="Remove this item">&times;</button>`;
+  row.querySelector(".rubric-item").value = value;
+  row.querySelector(".row-remove").addEventListener("click", () => row.remove());
+  $("rubric-rows").appendChild(row);
+  return row;
+}
+
+async function loadAssignments() {
+  const assignments = await api(`/assignments?course_id=${state.courseId}`);
+  $("assignment-list").innerHTML = assignments.length
+    ? assignments.map((a) => `
+        <div class="assignment-row">
+          <div class="a-prompt">${escapeHtml(truncate(a.prompt_text, 100))}</div>
+          <div class="a-meta tagline">
+            <code>${escapeHtml(a.entry_point || "—")}</code>
+            · ${a.rubric_items.length} checklist item${a.rubric_items.length === 1 ? "" : "s"}
+          </div>
+        </div>`).join("")
+    : `<p class="tagline">No exercises yet for this course.</p>`;
+}
+
+async function createAssignment(event) {
+  event.preventDefault();
+  const status = $("assignment-form-status");
+  const button = $("create-assignment");
+
+  const prompt = $("new-prompt").value.trim();
+  const entryPoint = $("new-entry-point").value.trim();
+  const starterCode = $("new-starter-code").value;
+  const itemTexts = Array.from(document.querySelectorAll("#rubric-rows .rubric-item"))
+    .map((el) => el.value.trim())
+    .filter(Boolean);
+
+  if (!prompt) { status.textContent = "Write the exercise prompt first."; return; }
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(entryPoint)) {
+    status.textContent = "Function name must be a valid identifier, e.g. \"fib\".";
+    return;
+  }
+  if (!itemTexts.length) { status.textContent = "Add at least one checklist item."; return; }
+
+  const items = itemTexts.map((text) => ({ text }));
+
+  button.disabled = true;
+  status.textContent = "creating…";
+  try {
+    await api("/assignments", {
+      method: "POST",
+      body: JSON.stringify({
+        course_id: state.courseId,
+        prompt_text: prompt,
+        entry_point: entryPoint,
+        starter_code: starterCode || null,
+        items,
+      }),
+    });
+    status.textContent = "Created — it appears on the student side as a new assignment.";
+    $("assignment-form").reset();
+    $("rubric-rows").innerHTML = "";
+    addRubricRow();
+    loadAssignments();
+    // Let the instructor see the confirmation for a beat before the popup closes.
+    setTimeout(closeAssignmentDialog, 900);
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+/* -------------------------------------------------------- exercise popup
+   A plain overlay toggled with a CSS class, instead of an inline accordion
+   panel or the native <dialog> element — the form is long enough that
+   expanding it in place pushed everything below it down the page. */
+function openAssignmentDialog() {
+  $("assignment-form-status").textContent = "";
+  // Always reopen on the form, not mid-way through a previous "show all" view.
+  $("assignment-list-section").classList.add("hidden");
+  $("toggle-assignment-list").textContent = "Show all questions";
+  $("assignment-dialog").classList.add("open");
+}
+
+function closeAssignmentDialog() {
+  $("assignment-dialog").classList.remove("open");
+}
+
+function toggleAssignmentList() {
+  const section = $("assignment-list-section");
+  const nowHidden = section.classList.toggle("hidden");
+  $("toggle-assignment-list").textContent = nowHidden ? "Show all questions" : "Hide questions";
+}
+
+$("open-assignment-dialog").addEventListener("click", openAssignmentDialog);
+$("close-assignment-dialog").addEventListener("click", closeAssignmentDialog);
+$("toggle-assignment-list").addEventListener("click", toggleAssignmentList);
+// Click on the backdrop (outside the popup's own box) closes it too.
+$("assignment-dialog").addEventListener("click", (e) => {
+  if (e.target === $("assignment-dialog")) closeAssignmentDialog();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("assignment-dialog").classList.contains("open")) closeAssignmentDialog();
+});
+
+/* ------------------------------------------------------------ add course
+   Backed by the `courses` table (app/models.py Course) via GET/POST
+   /api/courses — so a course created here survives a reload and shows up
+   for anyone else opening this dashboard, not just this browser tab. */
+async function loadCourses() {
+  const courses = await api("/courses");
+  const select = $("course");
+  const current = state.courseId;
+  select.innerHTML = courses
+    .map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`)
+    .join("");
+  // Keep the course already in view selected if it's still in the list,
+  // otherwise fall back to the first one the API returned.
+  if (courses.includes(current)) {
+    select.value = current;
+  } else if (courses.length) {
+    select.value = courses[0];
+    state.courseId = courses[0];
+  }
+  renderCourseList(courses);
+}
+
+function renderCourseList(courses) {
+  $("course-list").innerHTML = courses.length
+    ? courses.map((id) => `
+        <div class="assignment-row">
+          <div class="a-prompt">${escapeHtml(id)}</div>
+        </div>`).join("")
+    : `<p class="tagline">No courses yet.</p>`;
+}
+
+function toggleCourseList() {
+  const section = $("course-list-section");
+  const nowHidden = section.classList.toggle("hidden");
+  $("toggle-course-list").textContent = nowHidden ? "Show all courses" : "Hide courses";
+}
+
+function openCourseDialog() {
+  $("course-form-status").textContent = "";
+  $("new-course-id").value = "";
+  // Always reopen on the form, not mid-way through a previous "show all" view.
+  $("course-list-section").classList.add("hidden");
+  $("toggle-course-list").textContent = "Show all courses";
+  $("course-dialog").classList.add("open");
+  $("new-course-id").focus();
+}
+
+function closeCourseDialog() {
+  $("course-dialog").classList.remove("open");
+}
+
+async function createCourse(event) {
+  event.preventDefault();
+  const status = $("course-form-status");
+  const button = $("create-course");
+  const raw = $("new-course-id").value.trim();
+
+  if (!raw) { status.textContent = "Enter a course ID first."; return; }
+  if (!/^[A-Za-z0-9_-]+$/.test(raw)) {
+    status.textContent = "Use letters, numbers, \"-\" or \"_\" only, e.g. \"CS201\".";
+    return;
+  }
+
+  button.disabled = true;
+  status.textContent = "saving…";
+  try {
+    const result = await api("/courses", {
+      method: "POST", body: JSON.stringify({ course_id: raw }),
+    });
+    status.textContent = result.created
+      ? `Added — now viewing ${result.course_id}.`
+      : `"${result.course_id}" already exists — now viewing it.`;
+    state.courseId = result.course_id;
+    await boot();
+    $("course").value = state.courseId;
+    setTimeout(closeCourseDialog, 900);
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+$("open-course-dialog").addEventListener("click", openCourseDialog);
+$("close-course-dialog").addEventListener("click", closeCourseDialog);
+$("toggle-course-list").addEventListener("click", toggleCourseList);
+$("course-dialog").addEventListener("click", (e) => {
+  if (e.target === $("course-dialog")) closeCourseDialog();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("course-dialog").classList.contains("open")) closeCourseDialog();
+});
+$("course-form").addEventListener("submit", createCourse);
+
 $("summarize").addEventListener("click", summarize);
 $("save-visibility").addEventListener("click", saveVisibility);
 $("course").addEventListener("change", (e) => { state.courseId = e.target.value; boot(); });
+$("assignment").addEventListener("change", (e) => {
+  renderAssignment(Number(e.target.value));
+  $("summary").textContent = "";
+});
+$("assignment-form").addEventListener("submit", createAssignment);
+$("add-rubric-row").addEventListener("click", () => addRubricRow());
+
+// One empty checklist row to start with, so the form isn't blank.
+addRubricRow();
 
 async function boot() {
   try {
@@ -202,7 +459,8 @@ async function boot() {
     } else {
       banner("");
     }
-    await Promise.all([loadClass(), loadProviderLog(), loadStudents()]);
+    await loadCourses();
+    await Promise.all([loadClass(), loadProviderLog(), loadStudents(), loadAssignments()]);
   } catch (error) {
     banner(error.message, "bad");
   }

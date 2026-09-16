@@ -1,0 +1,561 @@
+/* Instructor dashboard layout + widgets only. The look — page background,
+   card surfaces, accent color, hairlines, type, header chrome, form fields
+   and buttons — is shared with the student page via styles.css (loaded
+   first), so both views read as one product. Everything below is what's
+   actually unique to this page: the three-column accordion layout, the
+   dot-tag/stat/table treatments, and the two popups. */
+
+.btn-icon { width: 13px; height: 13px; vertical-align: -2px; margin-right: 6px; }
+
+.banner.dash-banner {
+  margin: 18px 24px 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .04);
+  border-color: var(--hairline-soft);
+  backdrop-filter: blur(10px);
+}
+
+/* --------------------------------------------------------------- layout
+   Three independent columns of flat, borderless cards — opening or closing
+   a panel in one column never shifts the height of the others. */
+main.dash {
+  max-width: 1600px;
+  margin: 28px auto 56px;
+  padding: 0 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.dash-col {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dash-col-main { flex: 2 1 480px; }
+
+@media (max-width: 900px) {
+  main.dash { flex-direction: column; padding: 0 16px; }
+}
+
+/* ------------------------------------------------------------- the cards
+   Each block is a <details> element: collapsed by default, expands when the
+   instructor clicks its header. No JS needed for the toggle itself — the
+   existing instructor.js keeps loading and updating each panel's content in
+   the background regardless of whether it's open, so it's always current
+   the moment it's expanded. Flat charcoal surface, no border, no shadow at
+   rest — Apple leans on tonal contrast rather than elevation. */
+.dash .card {
+  margin: 0;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  border: none;
+  overflow: hidden;
+  transition: background .2s var(--ease), box-shadow .2s var(--ease);
+}
+.dash .card:hover { background: var(--panel-2); }
+.dash .card[open] {
+  background: var(--panel-2);
+  box-shadow: 0 0 0 1px var(--hairline-soft);
+}
+
+.dash .card > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  font-size: 14.5px;
+  font-weight: 590;
+  letter-spacing: -.01em;
+  color: #d1d1d6;
+  background: transparent;
+  transition: background .2s var(--ease), color .2s var(--ease);
+}
+.dash .card > summary::-webkit-details-marker { display: none; }
+.dash .card > summary::marker { content: ""; }
+
+.dash .card > summary:hover { background: rgba(255, 255, 255, .03); color: #fff; }
+.dash .card[open] > summary {
+  color: #fff;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* Small monochrome icon chip — every section reads the same until it's
+   open, when it (and the chevron) pick up the one accent blue. */
+.card-icon,
+.card-icon.tone-accent,
+.card-icon.tone-violet,
+.card-icon.tone-warn,
+.card-icon.tone-bad,
+.card-icon.tone-ok,
+.card-icon.tone-neutral {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .07);
+  color: var(--ink-dim);
+  transition: background .2s var(--ease), color .2s var(--ease);
+}
+.card-icon svg { width: 16px; height: 16px; }
+.dash .card[open] .card-icon {
+  background: rgba(var(--accent-rgb), .16);
+  color: var(--accent);
+}
+
+.dash .card .card-title { flex: 1 1 auto; min-width: 0; }
+.dash .card > summary .right {
+  margin-left: 4px;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.dash .card .chevron {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--ink-faint);
+  background: transparent;
+  transition: transform .3s var(--ease), color .2s var(--ease), background .2s var(--ease);
+}
+.dash .card .chevron svg { width: 14px; height: 14px; }
+.dash .card[open] > summary .chevron {
+  transform: rotate(90deg);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), .14);
+}
+
+.dash .card > .body { animation: dash-reveal .25s var(--ease) both; padding: 18px 20px; }
+.dash .card > .body.tight { padding: 0; }
+
+/* A card that opens a dialog instead of expanding in place — same look as a
+   summary row, but a plain button so there's no inline content to reveal. */
+.dash .card.card-button {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 590;
+  letter-spacing: -.01em;
+  color: #d1d1d6;
+  text-align: left;
+  transition: background .2s var(--ease), color .2s var(--ease);
+}
+.dash .card.card-button:hover { background: var(--panel-2); color: #fff; }
+.dash .card.card-button:hover .card-icon { background: rgba(var(--accent-rgb), .16); color: var(--accent); }
+.dash .card.card-button:hover .card-button-arrow {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), .14);
+  transform: translate(1px, -1px);
+}
+.card-button-arrow svg { width: 13px; height: 13px; }
+
+@keyframes dash-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--hairline-soft);
+  background: transparent;
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------------ stats
+   Big plain-white number, small tracked-out gray label underneath — no
+   gradients, no colored glow, just contrast. */
+.dash .stat {
+  background: rgba(255, 255, 255, .045);
+  border: none;
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+  transition: background .2s var(--ease), transform .2s var(--ease);
+}
+.dash .stat:hover {
+  background: rgba(255, 255, 255, .07);
+  transform: translateY(-2px);
+}
+.dash .stat .n {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", 'Inter', var(--mono), sans-serif;
+}
+.dash .stat .l {
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-top: 4px;
+}
+
+.dash .bar { background: rgba(255, 255, 255, .07); border-radius: 4px; }
+.dash .bar > span { transition: width .6s var(--ease); }
+
+/* ------------------------------------------------------------------ tables */
+.dash table { font-size: 13.5px; }
+.dash th {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 12px 20px;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.dash td { padding: 13px 20px; border-bottom: 1px solid var(--hairline-soft); }
+.dash tbody tr:last-child td { border-bottom: none; }
+.dash table tbody tr { transition: background .15s var(--ease); }
+.dash tbody tr:hover { background: rgba(255, 255, 255, .035); }
+
+.dash #students tbody tr { cursor: pointer; }
+.dash #students tbody tr.selected {
+  background: rgba(var(--accent-rgb), .12);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.dash #students tbody tr.selected td:first-child {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------- tags
+   A colored dot plus plain text, rather than a filled or outlined pill —
+   quieter, closer to how Apple codes categories (Health, Fitness, Files). */
+.dash .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.dash .tag::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* ------------------------------------------------------------- buttons
+   Solid white pill on black — the classic Apple dark-mode CTA. */
+.dash #summarize,
+.dash #save-visibility {
+  background: #fff;
+  border: none;
+  border-radius: 980px;
+  color: #000;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 18px;
+  transition: background .2s var(--ease), transform .1s var(--ease), opacity .2s var(--ease);
+}
+.dash #summarize:hover:not(:disabled),
+.dash #save-visibility:hover:not(:disabled) { background: #f2f2f2; }
+.dash #summarize:active:not(:disabled),
+.dash #save-visibility:active:not(:disabled) { transform: scale(.97); }
+.dash #summarize:disabled {
+  background: rgba(255, 255, 255, .12);
+  color: var(--ink-faint);
+}
+
+.dash #visibility {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .05);
+  border-color: var(--hairline);
+}
+
+/* -------------------------------------------------------------- modal
+   The "Add an exercise" form opens as a centered popup rather than an
+   inline accordion panel — the form is long enough that expanding it in
+   place pushed everything below it down the page. Plain overlay + class
+   toggle rather than <dialog>/showModal(), so opening it doesn't depend on
+   any dialog-specific browser behavior. */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, .6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  width: min(560px, 100%);
+  max-height: min(720px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 0 1px var(--hairline-soft);
+  overflow: hidden;
+  animation: modal-in .2s var(--ease) both;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--hairline-soft);
+  flex: none;
+}
+.modal-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 590;
+  letter-spacing: -.01em;
+  color: #fff;
+}
+.modal-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, .07);
+  color: var(--ink-dim);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .2s var(--ease), color .2s var(--ease);
+}
+.modal-close:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+
+.modal-body {
+  padding: 18px 20px 20px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .18) transparent;
+}
+.modal-body::-webkit-scrollbar { width: 7px; }
+.modal-body::-webkit-scrollbar-track { background: transparent; }
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .18);
+  border-radius: 8px;
+}
+.modal-body::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .3); }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal { animation: none; }
+}
+
+/* -------------------------------------------------------- add-exercise
+   Plain fields on flat surfaces, hairline focus ring — no colored outlines,
+   the same restraint as the rest of the page. */
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-dim);
+  margin: 16px 0 6px;
+}
+.field-label:first-child { margin-top: 0; }
+.field-label .tagline { font-weight: 400; }
+
+#assignment-form textarea,
+#assignment-form input[type="text"] {
+  width: 100%;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  color: var(--ink);
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color .2s var(--ease), background .2s var(--ease);
+}
+#assignment-form textarea.mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+#assignment-form textarea:focus,
+#assignment-form input[type="text"]:focus {
+  outline: none;
+  border-color: rgba(var(--accent-rgb), .55);
+  background: rgba(255, 255, 255, .06);
+}
+
+.rubric-rows { display: flex; flex-direction: column; gap: 8px; }
+.rubric-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rubric-row .rubric-item { flex: 1 1 auto; }
+.rubric-row .row-remove {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+}
+.rubric-row .row-remove:hover {
+  border-color: rgba(247, 118, 142, .5);
+  color: var(--bad);
+  background: rgba(247, 118, 142, .1);
+}
+
+.ghost-btn {
+  margin-top: 10px;
+  background: transparent;
+  border: 1px dashed var(--hairline);
+  border-radius: 10px;
+  color: var(--ink-dim);
+  padding: 7px 14px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+}
+.ghost-btn:hover {
+  border-color: rgba(var(--accent-rgb), .5);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), .08);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+#toggle-assignment-list,
+#toggle-course-list {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 18px;
+  border: none;
+  border-top: 1px solid var(--hairline-soft);
+  border-radius: 0;
+  text-align: left;
+  background: transparent;
+}
+#toggle-assignment-list:hover,
+#toggle-course-list:hover { background: transparent; color: var(--accent); }
+
+.existing-assignments {
+  margin-top: 14px;
+}
+.existing-assignments.hidden { display: none; }
+.assignment-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.assignment-row:last-child { border-bottom: none; }
+.assignment-row .a-prompt { font-size: 13.5px; color: var(--ink); }
+.assignment-row .a-meta { margin-top: 4px; }
+.assignment-row .a-meta code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  background: rgba(255, 255, 255, .06);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+/* ---------------------------------------------------------------- diffs */
+.dash .diff {
+  border-radius: 16px;
+  border: 1px solid var(--hairline-soft);
+  background: rgba(255, 255, 255, .03);
+}
+.dash .diff.explained { border-color: rgba(127, 209, 140, .4); }
+
+.dash pre.json {
+  background: rgba(255, 255, 255, .03);
+  border-radius: 10px;
+  color: var(--ink-dim);
+}
+
+.dash .transcript .turn { transition: background .15s var(--ease); }
+.dash .transcript .turn:hover { background: rgba(255, 255, 255, .02); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dash .stat, .dash .bar > span, .dash table tbody tr,
+  .dash .card .chevron, .dash .card > .body {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------ scrollbars */
+.dash .scroll-360,
+.dash .scroll-480,
+.dash .transcript {
+  background:
+    linear-gradient(var(--panel) 30%, rgba(0, 0, 0, 0)),
+    linear-gradient(rgba(0, 0, 0, 0), var(--panel) 70%) 0 100%,
+    linear-gradient(rgba(255, 255, 255, .1), rgba(0, 0, 0, 0)),
+    linear-gradient(rgba(0, 0, 0, 0), rgba(255, 255, 255, .1)) 0 100%;
+  background-repeat: no-repeat;
+  background-color: var(--panel);
+  background-size: 100% 24px, 100% 24px, 100% 6px, 100% 6px;
+  background-attachment: local, local, scroll, scroll;
+}
+
+.dash .scroll-360::-webkit-scrollbar,
+.dash .scroll-480::-webkit-scrollbar,
+.dash .transcript::-webkit-scrollbar {
+  width: 8px;
+}
+.dash .scroll-360::-webkit-scrollbar-thumb,
+.dash .scroll-480::-webkit-scrollbar-thumb,
+.dash .transcript::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .14);
+  border-radius: 8px;
+}
+.dash .scroll-360::-webkit-scrollbar-thumb:hover,
+.dash .scroll-480::-webkit-scrollbar-thumb:hover,
+.dash .transcript::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, .24);
+}

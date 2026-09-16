@@ -43,3 +43,29 @@ class VisibilityBody(BaseModel):
 
 class FlagBody(BaseModel):
     instructor_flag: bool
+
+
+class RubricItemIn(BaseModel):
+    """One instructor-authored checklist line. `id` is optional — the API
+    slugifies the text when it's left out. `field` is deliberately not
+    exposed here: spec_gate.required_field() infers a structural field
+    (goal/inputs/outputs/examples) from the wording itself, which is what
+    the seed assignments already rely on for their "examples" item."""
+    text: str = Field(min_length=1, max_length=300)
+    id: str | None = Field(default=None, max_length=60)
+
+
+class AssignmentCreate(BaseModel):
+    course_id: str = Field(min_length=1, max_length=100)
+    prompt_text: str = Field(min_length=1, max_length=4000)
+    # The function name the student's code must define — the Reflection
+    # Engine's behavioral diff calls this by name.
+    entry_point: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=80)
+    starter_code: str | None = Field(default=None, max_length=20_000)
+    items: list[RubricItemIn] = Field(min_length=1, max_length=20)
+
+
+class CourseCreate(BaseModel):
+    # Used as a URL path segment (/courses/{course_id}/...) elsewhere in the
+    # API, so kept to characters that never need escaping there.
+    course_id: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")

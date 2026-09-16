@@ -167,17 +167,27 @@ def class_patterns(db: Session, course_id: str) -> dict:
 # --------------------------------------------------------------------------
 # On-demand narrative summary — the one LLM call in this module
 # --------------------------------------------------------------------------
-def narrative_summary(db: Session, student_id: int) -> dict:
+def narrative_summary(db: Session, student_id: int, assignment_id: int | None = None) -> dict:
+    """Scoped to one assignment when the caller (the instructor dashboard) has
+    one selected. Without it, specs across every assignment the student has
+    touched get sorted together and `specs[-1]` can silently land on the wrong
+    assignment's version — the summary then quotes one assignment's prompt
+    while grounding itself in another's diffs."""
     student = db.get(Student, student_id)
     if student is None:
         raise LookupError("No such student.")
 
-    specs = db.scalars(
-        select(Specification).where(Specification.student_id == student_id)
-        .order_by(Specification.version)
-    ).all()
+    query = select(Specification).where(Specification.student_id == student_id)
+    if assignment_id is not None:
+        query = query.where(Specification.assignment_id == assignment_id)
+    specs = db.scalars(query.order_by(Specification.version)).all()
     if not specs:
-        return {"student_id": student_id, "summary": "No specification work recorded yet."}
+        return {
+            "student_id": student_id,
+            "assignment_id": assignment_id,
+            "summary": ("No specification work recorded yet for this assignment."
+                       if assignment_id is not None else "No specification work recorded yet."),
+        }
 
     latest = specs[-1]
     interactions = list(latest.interactions)
@@ -202,6 +212,7 @@ def narrative_summary(db: Session, student_id: int) -> dict:
     raw = generate_structured(system, payload, schema, task="narrative_summary", tier=DIALOGUE)
     return {
         "student_id": student_id,
+        "assignment_id": latest.assignment_id,
         "summary": (raw.get("summary") or "").strip() or "No summary generated.",
         "grounded_in": {
             "specification_versions": len(specs),

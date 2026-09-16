@@ -7,11 +7,39 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import LLMCall
+from app.models import Assignment, Course, LLMCall, Student
 from app.modules import dashboard, profiler
-from app.schemas import VisibilityBody
+from app.schemas import CourseCreate, VisibilityBody
 
 router = APIRouter(tags=["instructor-dashboard"])
+
+
+@router.get("/courses")
+def list_courses(db: Session = Depends(get_db)):
+    """Every course id the dashboard's course switcher should offer: ids
+    explicitly registered via POST /courses, plus any id already in use by a
+    student or assignment (the seeded CS101 has never had a Course row, only
+    students/assignments — this is what still surfaces it here)."""
+    ids = set(db.scalars(select(Course.course_id)).all())
+    ids.update(db.scalars(select(Student.course_id).distinct()).all())
+    ids.update(db.scalars(select(Assignment.course_id).distinct()).all())
+    return sorted(ids)
+
+
+@router.post("/courses", status_code=201)
+def create_course(body: CourseCreate, db: Session = Depends(get_db)):
+    """Registers a course id so it shows up in the switcher — and survives a
+    reload — even before any student or exercise references it."""
+    course_id = body.course_id.strip()
+    already = (
+        db.get(Course, course_id) is not None
+        or db.scalar(select(Student.id).where(Student.course_id == course_id)) is not None
+        or db.scalar(select(Assignment.id).where(Assignment.course_id == course_id)) is not None
+    )
+    if not already:
+        db.add(Course(course_id=course_id))
+        db.commit()
+    return {"course_id": course_id, "created": not already}
 
 
 @router.get("/courses/{course_id}/students/{student_id}/overview")
@@ -28,10 +56,18 @@ def class_patterns(course_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/students/{student_id}/narrative-summary")
-def narrative_summary(student_id: int, db: Session = Depends(get_db)):
-    """On-demand only — a button click, never automatic. Dialogue tier."""
+def narrative_summary(
+    student_id: int,
+    assignment_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """On-demand only — a button click, never automatic. Dialogue tier.
+
+    `assignment_id` scopes it to the assignment the instructor currently has
+    selected; omitted, it falls back to whatever the student touched last
+    across every assignment, which can blend two assignments together."""
     try:
-        return dashboard.narrative_summary(db, student_id)
+        return dashboard.narrative_summary(db, student_id, assignment_id)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
 

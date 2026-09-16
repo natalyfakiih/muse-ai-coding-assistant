@@ -505,11 +505,6 @@ async function enterPhase2() {
   const history = await api(`/specifications/${state.specId}/interactions`);
   const box = $("tutor-messages");
   box.innerHTML = "";
-  if (!history.interactions.length) {
-    bubble(box, "system",
-      "Reference questions get a direct answer. Questions about your own code get " +
-      "a counter-question — the point is that you find it.");
-  }
   history.interactions.forEach((row) => {
     bubble(box, "student", row.student_message);
     bubble(box, "muse", row.ai_response, tutorMeta(row));

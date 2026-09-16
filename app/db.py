@@ -74,7 +74,7 @@ def _add_missing_columns() -> None:
     mean losing your test data every time. Anything more involved than an added
     nullable/defaulted column needs a real migration tool.
     """
-    from sqlalchemy import inspect, text
+    from sqlalchemy import JSON, inspect, text
 
     inspector = inspect(engine)
     with engine.begin() as connection:
@@ -89,10 +89,17 @@ def _add_missing_columns() -> None:
                 default = ""
                 if column.default is not None and getattr(column.default, "is_scalar", False):
                     default = f" DEFAULT {column.default.arg!r}"
-                elif column.default is not None:
-                    # JSON/callable defaults: give existing rows an empty value
-                    # rather than NULL, which the models don't expect.
-                    sample = column.default.arg({}) if callable(column.default.arg) else None
+                elif column.default is not None and isinstance(column.type, JSON):
+                    # Only probe the default for JSON columns. A non-JSON column
+                    # (e.g. DateTime with default=utcnow) must never get a
+                    # JSON-shaped DEFAULT clause here — that silently corrupts
+                    # every existing row's value for it (utcnow() also takes no
+                    # arguments, so calling it speculatively can also just crash;
+                    # both are guarded against below regardless).
+                    try:
+                        sample = column.default.arg({}) if callable(column.default.arg) else None
+                    except TypeError:
+                        sample = column.default.arg() if callable(column.default.arg) else None
                     if isinstance(sample, dict):
                         default = " DEFAULT '{}'"
                     elif isinstance(sample, list):

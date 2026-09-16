@@ -1,13 +1,15 @@
 """Section 6.1 — Specification Gate endpoints."""
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Assignment, Specification, Student
 from app.modules import spec_gate
-from app.schemas import SpecLock, SpecMessage
+from app.schemas import AssignmentCreate, SpecLock, SpecMessage
 
 router = APIRouter(tags=["specification-gate"])
 
@@ -104,6 +106,47 @@ def list_assignments(course_id: str | None = None, db: Session = Depends(get_db)
     if course_id:
         query = query.filter(Assignment.course_id == course_id)
     return [_assignment_public(a) for a in query.order_by(Assignment.id).all()]
+
+
+def _slugify_item_id(text: str, used: set[str]) -> str:
+    base = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:40] or "item"
+    candidate, n = base, 2
+    while candidate in used:
+        candidate = f"{base}_{n}"
+        n += 1
+    used.add(candidate)
+    return candidate
+
+
+@router.post("/assignments", status_code=201)
+def create_assignment(body: AssignmentCreate, db: Session = Depends(get_db)):
+    """Instructor-authored exercise — the counterpart to the seed data in
+    app/seed.py, but reachable from the dashboard instead of a script.
+
+    Rubric items are stored without an explicit "field": spec_gate's
+    required_field() infers goal/inputs/outputs/examples from the wording
+    itself, so the instructor only ever writes plain-language checklist
+    lines, never internal field names.
+    """
+    used_ids: set[str] = set()
+    items = []
+    for index, item in enumerate(body.items):
+        explicit = (item.id or "").strip()
+        item_id = explicit or _slugify_item_id(item.text, used_ids)
+        if explicit:
+            used_ids.add(item_id)
+        items.append({"id": item_id, "priority": index + 1, "text": item.text.strip()})
+
+    assignment = Assignment(
+        course_id=body.course_id.strip(),
+        prompt_text=body.prompt_text.strip(),
+        starter_code=(body.starter_code or None),
+        rubric={"entry_point": body.entry_point.strip(), "items": items},
+    )
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+    return _assignment_public(assignment)
 
 
 @router.get("/students")

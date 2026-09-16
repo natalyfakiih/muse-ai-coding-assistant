@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MUSE — instructor</title>
-<link rel="stylesheet" href="/static/css/styles.css">
+<link rel="stylesheet" href="/static/css/styles.css?v=20260920">
+<link rel="stylesheet" href="/static/css/instructor.css?v=20260917">
 </head>
-<body>
+<body class="instructor">
 
 <header class="top">
   <div class="brand">M<span>U</span>SE</div>
@@ -14,22 +15,81 @@
   <div class="spacer"></div>
   <label class="tagline" for="course">course</label>
   <select id="course"><option value="CS101">CS101</option></select>
-  <button id="refresh">Refresh</button>
+  <button id="refresh">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+    Refresh
+  </button>
   <a href="/" class="tagline">← student view</a>
 </header>
 
-<main>
-  <div id="banner" class="banner hidden"></div>
+<div id="banner" class="banner dash-banner hidden"></div>
 
-  <div class="card" style="margin-bottom:16px">
-    <h2>Class at a glance</h2>
-    <div class="body"><div class="stat-row" id="stats"></div></div>
+<main class="dash">
+
+  <div class="dash-col">
+    <details class="card" open>
+      <summary>
+        <span class="card-icon tone-accent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V10M12 20V4M18 20v-6"/></svg>
+        </span>
+        <span class="card-title">Class at a glance</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body"><div class="stat-row" id="stats"></div></div>
+    </details>
+
+    <button type="button" class="card card-button" id="open-assignment-dialog">
+      <span class="card-icon tone-accent">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      </span>
+      <span class="card-title">Add an exercise</span>
+      <span class="chevron card-button-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </span>
+    </button>
+
+    <button type="button" class="card card-button" id="open-course-dialog">
+      <span class="card-icon tone-violet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      </span>
+      <span class="card-title">Add a course</span>
+      <span class="chevron card-button-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
+      </span>
+    </button>
   </div>
 
-  <div class="cols two" style="margin-bottom:16px">
-    <div class="card">
-      <h2>Where the class diverged from its own specifications
-        <span class="right tagline">group-by, no AI</span></h2>
+  <div class="dash-col dash-col-main">
+    <details class="card" open>
+      <summary>
+        <span class="card-icon tone-accent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="9" cy="7.5" r="3"/><path d="M14.7 4.6a3 3 0 0 1 0 5.8"/><path d="M18.3 19v-1.5a3.4 3.4 0 0 0-2.1-3.1"/></svg>
+        </span>
+        <span class="card-title">Students</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body tight">
+        <table>
+          <thead><tr><th>Name</th><th>Cohort</th><th class="num">Spec versions</th><th class="num">Questions</th><th class="num">Discrepancies</th></tr></thead>
+          <tbody id="students"></tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="card" open>
+      <summary>
+        <span class="card-icon tone-warn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+        </span>
+        <span class="card-title">Class drift patterns</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
       <div class="body tight">
         <table>
           <thead><tr>
@@ -39,10 +99,20 @@
           <tbody id="patterns"></tbody>
         </table>
       </div>
-    </div>
+    </details>
+  </div>
 
-    <div class="card">
-      <h2>Provider log <span class="right tagline">mistral → groq fallback</span></h2>
+  <div class="dash-col">
+    <details class="card">
+      <summary>
+        <span class="card-icon tone-violet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8-6-16-3 8H2"/></svg>
+        </span>
+        <span class="card-title">Provider log</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
       <div class="body tight">
         <div class="body"><div class="stat-row" id="provider-stats"></div></div>
         <div class="scroll-360"><table>
@@ -50,66 +120,172 @@
           <tbody id="provider-log"></tbody>
         </table></div>
       </div>
-    </div>
+    </details>
+
+    <details class="card">
+      <summary>
+        <span class="card-icon tone-violet">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l1.8 5.6L19 9l-5.2 1.9L12 16l-1.8-5.1L5 9l5.2-1.4L12 2z"/><path d="M19 14l.9 2.6L22 17l-2.1.7L19 20l-.9-2.3L16 17l2.1-.4L19 14z"/></svg>
+        </span>
+        <span class="card-title">Narrative summary</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body">
+        <button id="summarize" disabled>Generate for selected student</button>
+        <p id="summary" class="tagline"></p>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary>
+        <span class="card-icon tone-neutral">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        </span>
+        <span class="card-title">Specification history</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body tight scroll-480" id="spec-history"></div>
+    </details>
+
+    <details class="card">
+      <summary>
+        <span class="card-icon tone-bad">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21.5 20h-19L12 3.5z"/><path d="M12 9.5v4.2"/><circle cx="12" cy="16.9" r=".9" fill="currentColor" stroke="none"/></svg>
+        </span>
+        <span class="card-title">Discrepancies &amp; student explanations</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body" id="student-diffs"></div>
+    </details>
+
+    <details class="card">
+      <summary>
+        <span class="card-icon tone-ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+        </span>
+        <span class="card-title">Dependency-profile visibility</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body">
+        <p class="tagline" style="margin-top:0">
+          Student-facing by default. Instructor visibility is a per-course opt-in
+          stored in the data model, not a toggle on this page — with it off, the
+          API refuses an instructor read.
+        </p>
+        <select id="visibility">
+          <option value="student_only">student_only (default)</option>
+          <option value="instructor_opt_in">instructor_opt_in</option>
+        </select>
+        <button id="save-visibility">Save</button>
+        <span class="tagline" id="visibility-status"></span>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary>
+        <span class="card-icon tone-accent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 1 1 21 11.5z"/></svg>
+        </span>
+        <span class="card-title">Interaction transcript</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body tight">
+        <div class="toolbar">
+          <label class="tagline" for="assignment" style="display:none" id="assignment-label">assignment</label>
+          <select id="assignment" class="hidden"></select>
+          <span class="tagline" id="transcript-who"></span>
+        </div>
+        <div class="transcript" id="transcript"></div>
+      </div>
+    </details>
   </div>
 
-  <div class="cols two">
-    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
-      <div class="card">
-        <h2>Students</h2>
-        <div class="body tight">
-          <table>
-            <thead><tr><th>Name</th><th>Cohort</th><th class="num">Spec versions</th><th class="num">Questions</th><th class="num">Discrepancies</th></tr></thead>
-            <tbody id="students"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Interaction transcript <span class="right tagline" id="transcript-who"></span></h2>
-        <div class="body tight transcript" id="transcript"></div>
-      </div>
-    </div>
-
-    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
-      <div class="card">
-        <h2>Narrative summary <span class="right tagline">on demand — one call</span></h2>
-        <div class="body">
-          <button id="summarize" disabled>Generate for selected student</button>
-          <p id="summary" class="tagline"></p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Specification history</h2>
-        <div class="body tight scroll-480" id="spec-history"></div>
-      </div>
-
-      <div class="card">
-        <h2>Discrepancies &amp; student explanations</h2>
-        <div class="body" id="student-diffs"></div>
-      </div>
-
-      <div class="card">
-        <h2>Dependency-profile visibility</h2>
-        <div class="body">
-          <p class="tagline" style="margin-top:0">
-            Student-facing by default. Instructor visibility is a per-course opt-in
-            stored in the data model, not a toggle on this page — with it off, the
-            API refuses an instructor read.
-          </p>
-          <select id="visibility">
-            <option value="student_only">student_only (default)</option>
-            <option value="instructor_opt_in">instructor_opt_in</option>
-          </select>
-          <button id="save-visibility">Save</button>
-          <span class="tagline" id="visibility-status"></span>
-        </div>
-      </div>
-    </div>
-  </div>
 </main>
 
-<script src="/static/js/instructor.js"></script>
+<div id="assignment-dialog" class="modal-overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="assignment-dialog-title">
+    <div class="modal-header">
+      <span class="card-icon tone-accent">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      </span>
+      <h2 class="modal-title" id="assignment-dialog-title">Add an exercise</h2>
+      <button type="button" id="close-assignment-dialog" class="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="assignment-form">
+        <label class="field-label" for="new-prompt">Exercise prompt</label>
+        <textarea id="new-prompt" rows="3"
+          placeholder="Write a function that returns the first n numbers of the Fibonacci sequence…"
+          required></textarea>
+
+        <label class="field-label" for="new-entry-point">Function name students must define</label>
+        <input id="new-entry-point" type="text" placeholder="fib" required>
+
+        <label class="field-label" for="new-starter-code">Starter code <span class="tagline">(optional)</span></label>
+        <textarea id="new-starter-code" rows="3" class="mono"
+          placeholder="def fib(n):&#10;    # your code here&#10;    pass"></textarea>
+
+        <label class="field-label">
+          Specification checklist <span class="tagline">— what must the student's own spec state before they can lock it?</span>
+        </label>
+        <div id="rubric-rows" class="rubric-rows"></div>
+        <button type="button" id="add-rubric-row" class="ghost-btn">+ Add checklist item</button>
+
+        <div class="form-actions">
+          <button type="submit" id="create-assignment">Create exercise</button>
+          <span class="tagline" id="assignment-form-status"></span>
+        </div>
+      </form>
+
+      <button type="button" id="toggle-assignment-list" class="ghost-btn">Show all questions</button>
+
+      <div class="existing-assignments hidden" id="assignment-list-section">
+        <div class="field-label">Existing exercises in this course</div>
+        <div id="assignment-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="course-dialog" class="modal-overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="course-dialog-title">
+    <div class="modal-header">
+      <span class="card-icon tone-violet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      </span>
+      <h2 class="modal-title" id="course-dialog-title">Add a course</h2>
+      <button type="button" id="close-course-dialog" class="modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="course-form">
+        <label class="field-label" for="new-course-id">Course ID</label>
+        <input id="new-course-id" type="text" placeholder="CS201" required>
+        <div class="form-actions">
+          <button type="submit" id="create-course">Add course</button>
+          <span class="tagline" id="course-form-status"></span>
+        </div>
+      </form>
+
+      <button type="button" id="toggle-course-list" class="ghost-btn">Show all courses</button>
+
+      <div class="existing-assignments hidden" id="course-list-section">
+        <div class="field-label">Existing courses</div>
+        <div id="course-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/instructor.js?v=20260916d"></script>
 </body>
 </html>

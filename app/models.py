@@ -235,3 +235,20 @@ class CourseSettings(Base):
     dependency_profile_visibility: Mapped[str] = mapped_column(
         String(20), nullable=False, default="student_only"
     )  # student_only | instructor_opt_in
+
+
+class Course(Base):
+    """The registry backing the instructor dashboard's course switcher.
+
+    Nothing else in the data model requires a row here — Student/Assignment/
+    CourseSettings all just key on a free-text course_id — so this table
+    exists purely so a course created from the dashboard, with no students or
+    exercises yet, still shows up in the dropdown and survives a reload
+    instead of only living in that one browser tab. Course ids that already
+    have students or assignments (like the seeded CS101) are recognized too,
+    without needing a row here — see list_courses() in dashboard.py."""
+
+    __tablename__ = "courses"
+
+    course_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
