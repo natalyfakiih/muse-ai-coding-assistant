@@ -1,0 +1,140 @@
+/* My learning — one card per subject. Builds on home.css (sidebar, top bar,
+   tokens); only the subject cards live here. */
+
+.ico-home-muted { stroke: var(--h-ink-2); }
+.sprout { font-size: 30px; display: inline-block; margin-left: 8px; vertical-align: -2px; }
+
+.subjects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  margin-top: 32px;
+  align-items: stretch;
+}
+@media (max-width: 1180px) { .subjects { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px)  { .subjects { grid-template-columns: minmax(0, 1fr); } }
+
+.subj-empty {
+  grid-column: 1 / -1;
+  padding: 28px;
+  border: 2px dashed var(--h-line);
+  border-radius: 14px;
+  color: var(--h-ink-2);
+  font-weight: 600;
+}
+
+.subj {
+  background: var(--h-surface);
+  border: 2px solid var(--h-line);
+  border-radius: 14px;
+  padding: 28px 30px 30px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.subj-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  background: var(--tint-soft);
+}
+.subj-icon svg {
+  width: 20px; height: 20px;
+  fill: none; stroke: var(--tint);
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.subj-icon svg .fill { fill: var(--tint); stroke: none; }
+
+.tint-blue   { --tint: #1f7fd6; --tint-soft: #e3f1fd; }
+.tint-green  { --tint: #1f9d55; --tint-soft: #e3f5e7; }
+.tint-purple { --tint: #7b5ad6; --tint-soft: #efeafd; }
+.tint-orange { --tint: #e9821b; --tint-soft: #fff1e0; }
+
+.subj-name {
+  margin: 28px 0 0;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -.2px;
+}
+.subj-blurb {
+  margin: 16px 0 0;
+  font-size: 15px;
+  color: var(--h-ink-2);
+  line-height: 1.5;
+}
+
+.lessons {
+  list-style: none;
+  margin: 30px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lesson a {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--h-ink);
+}
+.lesson a:hover .lesson-t { text-decoration: underline; text-underline-offset: 3px; }
+.lesson a:focus-visible { outline: 3px solid var(--h-green); outline-offset: 2px; }
+.lesson-t { min-width: 0; overflow-wrap: anywhere; }
+.lesson svg {
+  width: 22px; height: 22px; flex: none;
+  fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.lesson.done svg  { stroke: var(--h-green); }
+.lesson.done .disc { fill: var(--h-green-soft); }
+.lesson.next svg  { stroke: var(--h-green); }
+.lesson.later svg { stroke: var(--h-ink-2); }
+.lesson.later .lesson-t { color: var(--h-ink); }
+
+.lessons-more {
+  margin-top: 6px;
+  padding-left: 38px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--h-ink-3);
+}
+.lessons-more a { color: var(--h-green); }
+.lessons-more a:hover { text-decoration: underline; }
+.lessons-none { margin-top: 30px; font-size: 14px; color: var(--h-ink-3); }
+
+.subj-foot { margin-top: auto; padding-top: 30px; display: flex; flex-direction: column; gap: 10px; }
+.subj .btn-green {
+  margin-top: 0;
+  width: 100%;
+  justify-content: center;
+  height: 52px;
+  font-size: 15px;
+}
+.btn-green.is-off {
+  background: #e7ebe7;
+  color: var(--h-ink-3);
+  box-shadow: 0 4px 0 #d3d9d3;
+  pointer-events: none;
+}
+.btn-green.is-off svg { stroke: var(--h-ink-3); }
+.subj-meta {
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--h-ink-3);
+}
+
+/* Links into the subject's "learn the material / practise" choice. */
+.subj-name a { color: inherit; }
+.subj-name a:hover { color: var(--h-green); text-decoration: underline; text-underline-offset: 4px; }
+.subj-name a:focus-visible, .subj-choose:focus-visible { outline: 3px solid var(--h-green); outline-offset: 3px; border-radius: 4px; }
+.subj-choose {
+  align-self: center;
+  font-size: 14px; font-weight: 800;
+  color: var(--h-green);
+}
+.subj-choose:hover { text-decoration: underline; text-underline-offset: 3px; }

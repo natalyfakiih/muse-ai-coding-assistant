@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,13 +9,77 @@
 <link rel="stylesheet" href="/static/css/dashboard.css?v=20261009">
 <link rel="stylesheet" href="/static/css/ollie.css?v=20261009">
 <link rel="stylesheet" href="/static/css/learn.css?v=20261009">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@400;600;700;800;900&display=swap">
+<link rel="stylesheet" href="/static/css/learn-skin.css?v=20261010c">
 </head>
-<body>
+<body class="learn-page">
 
+<div class="learn-shell">
+  <aside class="muse-side">
+    <a class="logo" href="/" aria-label="MUSE home">
+      <span class="logo-word">muse</span>
+      <svg class="logo-sprout" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 29V15" />
+        <path d="M16 17c0-5 3.5-8.5 9-8.5 0 5.5-3.5 8.5-9 8.5z" />
+        <path d="M16 20c-.5-4-3.5-6.5-8-6.5 0 4.2 3 6.5 8 6.5z" />
+      </svg>
+    </a>
+    <div class="logo-tag">A little better, every day</div>
+
+    <nav class="nav" aria-label="Student">
+      <a class="nav-item" href="/">
+        <svg class="ico ico-home" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/>
+        </svg>
+        <span>My overview</span>
+      </a>
+      <a class="nav-item active" href="/learning" aria-current="page">
+        <svg class="ico ico-book" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2.5 5c3-1.3 6.3-1.3 9.5.8v14c-3.2-2.1-6.5-2.1-9.5-.8z"/>
+          <path d="M21.5 5c-3-1.3-6.3-1.3-9.5.8v14c3.2-2.1 6.5-2.1 9.5-.8z"/>
+        </svg>
+        <span>My learning</span>
+      </a>
+      <a class="nav-item" href="/progress">
+        <svg class="ico ico-bars" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 20v-6"/><path d="M12 20V9"/><path d="M19 20V4"/>
+        </svg>
+        <span>My progress</span>
+      </a>
+      <a class="nav-item" href="/week">
+        <svg class="ico ico-cal" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3.5" y="5" width="17" height="15.5" rx="2"/>
+          <path d="M3.5 9.5h17"/><path d="M8 3v4"/><path d="M16 3v4"/>
+          <g class="dots"><circle cx="8" cy="13" r=".9"/><circle cx="12" cy="13" r=".9"/><circle cx="16" cy="13" r=".9"/>
+          <circle cx="8" cy="16.5" r=".9"/><circle cx="12" cy="16.5" r=".9"/><circle cx="16" cy="16.5" r=".9"/></g>
+        </svg>
+        <span>My week</span>
+      </a>
+      <a class="nav-item" href="/chat">
+        <svg class="ico ico-chat" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3.5c5 0 9 3.4 9 7.8s-4 7.8-9 7.8c-1.2 0-2.3-.2-3.4-.5L3.5 20.5l1.6-4.2C3.8 14.9 3 13.2 3 11.3 3 6.9 7 3.5 12 3.5z"/>
+        </svg>
+        <span>Chat with Ollie</span>
+      </a>
+    </nav>
+    <a class="side-switch" href="/instructor" aria-label="Switch to teacher view">
+      <span class="ss-top">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-3-3"/><path d="M17 17H6l3 3"/></svg>
+        Teacher view
+      </span>
+      <span class="ss-more">See the class dashboard →</span>
+    </a>
+  </aside>
+
+<div class="learn-col">
 <header class="top">
-  <a href="/" class="tagline">← my overview</a>
-  <div class="brand">M<span>U</span>SE</div>
-  <div class="tagline">Map · Understand · Solve · Explain</div>
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="/learning">My learning</a>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+    <span class="here">Notes &amp; practice</span>
+  </nav>
   <div class="spacer"></div>
   <label class="tagline" for="student">student</label>
   <select id="student"></select>
@@ -24,7 +88,6 @@
   <label class="tagline needs-subject" for="assignment">exercise</label>
   <select id="assignment" class="needs-subject"></select>
   <button id="change-mode" class="linkish" type="button">learn or practise</button>
-  <button id="change-subject" class="linkish" type="button">change subject</button>
   <a href="/instructor" class="tagline">instructor view →</a>
 </header>
 
@@ -59,7 +122,20 @@
        nothing you have already done goes away.</p>
     <div class="subject-grid" id="mode-grid"></div>
     <button class="linkish" id="mode-back" type="button" style="margin-top:22px">
-      ← a different subject</button>
+      ← back to My learning</button>
+  </section>
+
+  <!-- ================= BEFORE PRACTICE ================= -->
+  <!-- A short briefing between choosing to practise and the coding page. -->
+  <section id="practice-intro" class="start pi hidden">
+    <div class="start-intro" id="pi-ollie"></div>
+    <h1 class="start-h" id="pi-h">Ready to practise?</h1>
+    <p class="start-sub">Pick an exercise. Each one takes about 15–20 minutes, and you
+       write every line yourself.</p>
+    <ol class="pi-steps" id="pi-steps"></ol>
+    <h2 class="pi-sub">Your exercises</h2>
+    <ol class="pi-list" id="pi-list"></ol>
+    <button class="linkish" type="button" id="pi-back">← back to notes or practice</button>
   </section>
 
   <!-- ================= LEARN ================= -->
@@ -261,63 +337,68 @@
       </div>
     </div>
     <div id="submission-view">
-      <div class="cols two">
-      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
-        <div class="ollie-says" id="ollie-reflect"></div>
-        <div class="card">
-          <h2>Discrepancies to explain <span class="right tagline" id="diff-count"></span></h2>
+      <!-- Reflection, simplified: one job up front (explain each difference,
+           then submit), the test results beside it, and everything else
+           folded into "Your session in detail". Every id app.js uses is kept. -->
+      <div class="ollie-says" id="ollie-reflect"></div>
+
+      <div class="cols two reflect-main">
+        <div class="card reflect-task">
+          <h2><span class="r-step">1</span> Explain each difference
+            <span class="right tagline" id="diff-count"></span></h2>
           <div class="body" id="diffs"></div>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
-        <div class="card">
-          <h2>Behavioral diff <span class="right tagline" id="case-summary"></span></h2>
-          <div class="body tight" id="cases"></div>
-        </div>
-        <div class="card">
-          <h2>Submission</h2>
-          <div class="body">
-            <p class="tagline" id="finalize-note" style="margin-top:0">
-              Every discrepancy needs an explanation in your own words before this
-              submission is accepted.
+          <div class="reflect-submit">
+            <p class="tagline" id="finalize-note">
+              Every difference needs an explanation in your own words before you can submit.
             </p>
-            <button id="finalize" class="primary" disabled>Finalize submission</button>
-            <button class="ghost" data-goto="2">Back to the editor</button>
-            <button class="ghost" data-goto="1">View my specification</button>
+            <div class="reflect-actions">
+              <button id="finalize" class="primary" disabled><span class="r-step light">2</span> Submit my work</button>
+              <button class="ghost" data-goto="2">Back to the editor</button>
+              <button class="ghost" data-goto="1">View my plan</button>
+            </div>
           </div>
         </div>
-      </div>
-      </div>
 
-      <!-- Full width, under the two columns. These used to sit in the
-           right-hand column, which is ~250px on a laptop, so every chart
-           collapsed into one narrow stack while the left half sat empty. -->
-      <div class="reflection-wide">
-        <div class="card">
-          <h2>How this went <span class="right tagline">your data, no AI</span></h2>
-          <div class="body" id="my-dashboard"></div>
-        </div>
-
-        <div class="card">
-          <h2>This session in numbers <span class="right tagline">every count, in full</span></h2>
-          <div class="body" id="session-stats"></div>
-        </div>
-
-        <div class="card">
-          <h2>Everything you were asked
-            <span class="right"><button id="transcript-toggle" class="ghost">Show</button></span>
-          </h2>
-          <div class="body tight hidden" id="transcript-body"></div>
-        </div>
-
-        <div class="card">
-          <h2>Your AI-dependency profile <span class="right tagline">self-reflection only</span></h2>
-          <div class="body" id="profile"></div>
+        <div class="card reflect-tests">
+          <h2>Test results <span class="right tagline" id="case-summary"></span></h2>
+          <div class="body tight" id="cases"></div>
         </div>
       </div>
+
+      <details class="card reflect-more" id="reflect-more">
+        <summary>
+          <span>Your session in detail</span>
+          <span class="tagline">how it went, the numbers, every question, your AI-use profile</span>
+        </summary>
+        <div class="rm-tabs" role="tablist" aria-label="Session details">
+          <button type="button" role="tab" class="rm-tab active" data-tab="rm-how" aria-selected="true">How it went</button>
+          <button type="button" role="tab" class="rm-tab" data-tab="rm-numbers" aria-selected="false">In numbers</button>
+          <button type="button" role="tab" class="rm-tab" data-tab="rm-asked" aria-selected="false">Questions asked</button>
+          <button type="button" role="tab" class="rm-tab" data-tab="rm-profile" aria-selected="false">AI-use profile</button>
+        </div>
+        <div class="rm-panel" id="rm-how" role="tabpanel">
+          <p class="rm-note">Your data, no AI.</p>
+          <div id="my-dashboard"></div>
+        </div>
+        <div class="rm-panel" id="rm-numbers" role="tabpanel" hidden>
+          <p class="rm-note">Every count from this session, in full.</p>
+          <div id="session-stats"></div>
+        </div>
+        <div class="rm-panel" id="rm-asked" role="tabpanel" hidden>
+          <p class="rm-note">Everything you were asked.
+            <button id="transcript-toggle" class="ghost">Show</button></p>
+          <div class="hidden" id="transcript-body"></div>
+        </div>
+        <div class="rm-panel" id="rm-profile" role="tabpanel" hidden>
+          <p class="rm-note">For your own reflection only.</p>
+          <div id="profile"></div>
+        </div>
+      </details>
     </div>
   </section>
 </main>
+</div><!-- /.learn-col -->
+</div><!-- /.learn-shell -->
 
 <!-- Reaction overlay: a random image from pics/ on a wrong answer or a failing
      test, and on getting something right. Click anywhere to dismiss early. -->
@@ -337,6 +418,6 @@
 <script src="/static/js/ollie.js?v=20261009"></script>
 <script src="/static/js/speech.js?v=20261009"></script>
 <script src="/static/js/charts.js?v=20261009"></script>
-<script src="/static/js/app.js?v=20261009"></script>
+<script src="/static/js/app.js?v=20261009o"></script>
 </body>
 </html>

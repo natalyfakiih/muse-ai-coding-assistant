@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from collections import Counter, defaultdict
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, true
 from sqlalchemy.orm import Session
 
 from app.llm import DIALOGUE, generate_structured
@@ -90,7 +90,11 @@ def _interaction_public(row: Interaction) -> dict:
 # --------------------------------------------------------------------------
 # Per-class view — pure SQL aggregation
 # --------------------------------------------------------------------------
-def class_patterns(db: Session, course_id: str) -> dict:
+def class_patterns(db: Session, course_id: str,
+                   assignment_ids: set[int] | None = None) -> dict:
+    """`assignment_ids` limits it to one subject's exercises; None means all."""
+    only = (Specification.assignment_id.in_(assignment_ids or {-1})
+            if assignment_ids is not None else true())
     total_students = db.scalar(
         select(func.count(Student.id)).where(Student.course_id == course_id)
     ) or 0
@@ -105,7 +109,7 @@ def class_patterns(db: Session, course_id: str) -> dict:
         )
         .join(Specification, DiffResult.specification_id == Specification.id)
         .join(Student, Specification.student_id == Student.id)
-        .where(Student.course_id == course_id)
+        .where(Student.course_id == course_id, only)
         .group_by(DiffResult.spec_item_key, DiffResult.category)
         .order_by(func.count(func.distinct(Specification.student_id)).desc())
     ).all()
@@ -125,28 +129,30 @@ def class_patterns(db: Session, course_id: str) -> dict:
         select(DiffResult.category, func.count(DiffResult.id))
         .join(Specification, DiffResult.specification_id == Specification.id)
         .join(Student, Specification.student_id == Student.id)
-        .where(Student.course_id == course_id)
+        .where(Student.course_id == course_id, only)
         .group_by(DiffResult.category)
     ).all())
 
     question_mix = dict(db.execute(
         select(Interaction.classified_type, func.count(Interaction.id))
         .join(Student, Interaction.student_id == Student.id)
-        .where(Student.course_id == course_id)
+        .join(Specification, Interaction.specification_id == Specification.id)
+        .where(Student.course_id == course_id, only)
         .group_by(Interaction.classified_type)
     ).all())
 
     mode_mix = dict(db.execute(
         select(Interaction.response_mode, func.count(Interaction.id))
         .join(Student, Interaction.student_id == Student.id)
-        .where(Student.course_id == course_id)
+        .join(Specification, Interaction.specification_id == Specification.id)
+        .where(Student.course_id == course_id, only)
         .group_by(Interaction.response_mode)
     ).all())
 
     spec_versions = db.execute(
         select(Specification.student_id, func.max(Specification.version))
         .join(Student, Specification.student_id == Student.id)
-        .where(Student.course_id == course_id)
+        .where(Student.course_id == course_id, only)
         .group_by(Specification.student_id)
     ).all()
     versions = [v for _, v in spec_versions]

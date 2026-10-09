@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@400;600;700;800;900&display=swap">
-<link rel="stylesheet" href="/static/css/home.css?v=20261009">
+<link rel="stylesheet" href="/static/css/home.css?v=20261010c">
 </head>
 <body>
 
@@ -32,20 +32,20 @@
         </svg>
         <span>My overview</span>
       </a>
-      <a class="nav-item" href="/learn">
+      <a class="nav-item" href="/learning">
         <svg class="ico ico-book" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M2.5 5c3-1.3 6.3-1.3 9.5.8v14c-3.2-2.1-6.5-2.1-9.5-.8z"/>
           <path d="M21.5 5c-3-1.3-6.3-1.3-9.5.8v14c3.2-2.1 6.5-2.1 9.5-.8z"/>
         </svg>
         <span>My learning</span>
       </a>
-      <a class="nav-item" href="/learn#progress">
+      <a class="nav-item" href="/progress">
         <svg class="ico ico-bars" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 20v-6"/><path d="M12 20V9"/><path d="M19 20V4"/>
         </svg>
         <span>My progress</span>
       </a>
-      <a class="nav-item" href="/learn#week">
+      <a class="nav-item" href="/week">
         <svg class="ico ico-cal" viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3.5" y="5" width="17" height="15.5" rx="2"/>
           <path d="M3.5 9.5h17"/><path d="M8 3v4"/><path d="M16 3v4"/>
@@ -54,13 +54,20 @@
         </svg>
         <span>My week</span>
       </a>
-      <a class="nav-item" href="/learn#ollie">
+      <a class="nav-item" href="/chat">
         <svg class="ico ico-chat" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 3.5c5 0 9 3.4 9 7.8s-4 7.8-9 7.8c-1.2 0-2.3-.2-3.4-.5L3.5 20.5l1.6-4.2C3.8 14.9 3 13.2 3 11.3 3 6.9 7 3.5 12 3.5z"/>
         </svg>
         <span>Chat with Ollie</span>
       </a>
     </nav>
+    <a class="side-switch" href="/instructor" aria-label="Switch to teacher view">
+      <span class="ss-top">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-3-3"/><path d="M17 17H6l3 3"/></svg>
+        Teacher view
+      </span>
+      <span class="ss-more">See the class dashboard →</span>
+    </a>
   </aside>
 
   <!-- ================= MAIN ================= -->
@@ -93,7 +100,7 @@
           </svg>
           <span class="bell-dot"></span>
         </button>
-        <div class="avatar" id="avatar" aria-label="Sara">S</div>
+        <div class="avatar" id="avatar" aria-label="Nataly">N</div>
       </div>
     </header>
 
@@ -101,7 +108,7 @@
 
       <div class="greet-row">
         <div>
-          <h1 class="greet">Hey <span id="student-name">Sara</span>, you've got this!
+          <h1 class="greet">Hey <span id="student-name">Nataly</span>, you've got this!
             <span class="wave" aria-hidden="true">👋</span></h1>
           <p class="greet-sub">Every little step counts. Let's make today a good one.</p>
         </div>
@@ -125,7 +132,7 @@
             <h2 class="hero-h">Small steps.<br>Big possibilities.</h2>
             <p class="hero-p">You're more than a grade. Let's build on your
               strengths and grow, one day at a time.</p>
-            <a class="btn-green" href="/learn">
+            <a class="btn-green" href="/learning">
               Let's keep learning
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
             </a>
@@ -171,6 +178,6 @@
   </div>
 </div>
 
-<script src="/static/js/home.js?v=20261009"></script>
+<script src="/static/js/home.js?v=20261009c"></script>
 </body>
 </html>

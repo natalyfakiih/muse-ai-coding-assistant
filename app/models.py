@@ -338,3 +338,22 @@ class Course(Base):
 
     course_id: Mapped[str] = mapped_column(String(100), primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OllieChatTopic(Base):
+    """One row per question asked on the "Chat with Ollie" page: WHICH note it
+    matched, never the words the student typed. This is what lets the teacher
+    see "12 students asked about recursion this week" while the chat itself
+    stays private, as the project promises."""
+
+    __tablename__ = "ollie_chat_topics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    course_id: Mapped[str | None] = mapped_column(String(100), index=True)
+    student_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    subject_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    material_id: Mapped[int | None] = mapped_column(Integer)
+    note_title: Mapped[str | None] = mapped_column(String(300))
+    # False when nothing in the notes matched: a gap the teacher may want to fill.
+    covered: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

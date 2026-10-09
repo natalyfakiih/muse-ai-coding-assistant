@@ -1,0 +1,120 @@
+/* My progress — growth skills, not grades. Builds on home.css. */
+
+.ico-home-muted { stroke: var(--h-ink-2); }
+.sprout { font-size: 30px; display: inline-block; margin-left: 8px; vertical-align: -2px; }
+
+.skills {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  margin-top: 32px;
+  align-items: stretch;
+}
+@media (max-width: 1180px) { .skills { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px)  { .skills { grid-template-columns: minmax(0, 1fr); } }
+
+.skill {
+  background: var(--h-surface);
+  border: 2px solid var(--h-line);
+  border-radius: 14px;
+  padding: 28px 30px 34px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tint-blue   { --tint: #1a8ae0; --tint-soft: #e3f1fd; }
+.tint-purple { --tint: #8b6fd6; --tint-soft: #efeafd; }
+.tint-green  { --tint: #1f9d55; --tint-soft: #e3f5e7; }
+.tint-orange { --tint: #e9821b; --tint-soft: #fff1e0; }
+
+.skill-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: var(--tint-soft);
+}
+.skill-icon svg {
+  width: 21px; height: 21px;
+  fill: none; stroke: var(--tint);
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.skill-name { margin: 28px 0 0; font-size: 21px; font-weight: 900; letter-spacing: -.1px; }
+.skill-blurb { margin: 16px 0 0; font-size: 14.5px; line-height: 1.75; color: var(--h-ink-2); }
+
+.skill-score {
+  margin-top: 24px;
+  display: flex; align-items: baseline; gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.skill-score b { font-size: 38px; font-weight: 800; line-height: 1; color: var(--h-ink); }
+.skill-score span { font-size: 16px; font-weight: 700; color: var(--h-ink-2); }
+
+.bar {
+  margin-top: 26px;
+  height: 11px;
+  border-radius: 99px;
+  background: #eef1ef;
+  overflow: hidden;
+}
+.bar i {
+  display: block; height: 100%;
+  border-radius: 99px;
+  background: var(--tint);
+  width: 0;
+  transition: width .9s cubic-bezier(.2, .8, .2, 1);
+}
+.skill-how { margin: 24px 0 0; font-size: 14.5px; line-height: 1.75; color: var(--h-ink-2); }
+
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+
+/* ---------- strength + comeback story ---------- */
+.strength {
+  margin-top: 40px;
+  display: flex;
+  align-items: center;
+  gap: 34px;
+  padding: 36px 42px;
+  background: #dbf5e1;
+  border-radius: 4px;
+}
+.strength-ico {
+  width: 46px; height: 46px; flex: none;
+  fill: none; stroke: var(--h-green);
+  stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.strength h2 { margin: 0; font-size: 21px; font-weight: 900; color: var(--h-ink); }
+.strength p { margin: 12px 0 0; font-size: 16px; color: var(--h-ink-2); line-height: 1.5; }
+
+.divider { border: 0; border-top: 1px solid var(--h-line); margin: 42px 0 0; }
+
+.story { margin-top: 42px; }
+.story-h { margin: 0; font-size: 21px; font-weight: 900; }
+.timeline {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.moment {
+  display: grid;
+  grid-template-columns: 94px minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 22px 22px;
+  background: #f0f4f1;
+  border-radius: 8px;
+}
+.moment time {
+  font-size: 15px; font-weight: 900;
+  letter-spacing: .5px;
+  color: var(--h-green);
+  font-variant-numeric: tabular-nums;
+}
+.moment h3 { margin: 0; font-size: 16.5px; font-weight: 900; color: var(--h-ink); }
+.moment p { margin: 8px 0 0; font-size: 14px; color: var(--h-ink-2); line-height: 1.5; }
+
+@media (max-width: 700px) {
+  .strength { flex-direction: column; align-items: flex-start; gap: 18px; padding: 26px 22px; }
+  .moment { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+}

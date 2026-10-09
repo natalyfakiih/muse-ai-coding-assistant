@@ -1,0 +1,231 @@
+/* Teacher side (/instructor) in the MUSE look, with a sidebar that has one
+   entry per dashboard box. Loaded after styles.css, instructor.css and
+   learn-skin.css (which supplies the light tokens, sidebar, buttons and
+   fields); this file only covers what is specific to the teacher page. */
+
+body.teacher-page { background: var(--bg); color: var(--ink); }
+
+/* ---------------- sidebar: compact, grouped ---------------- */
+.teacher-side .logo-tag { max-width: 220px; }
+.teacher-side .nav { gap: 2px; margin-top: 30px; overflow-y: auto; min-height: 0; padding-bottom: 12px; }
+.teacher-side .nav-group {
+  margin: 16px 0 6px 20px;
+  font-size: 11.5px; font-weight: 900;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.teacher-side .nav-group:first-child { margin-top: 0; }
+.teacher-side .nav-item {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  gap: 14px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+.teacher-side .nav-item:hover { background: #f3f6f3; border-color: transparent; color: var(--ink); }
+.teacher-side .nav-item.active { background: #e3f5e7; border-color: var(--peach); color: var(--green); font-weight: 800; }
+.teacher-side .nav-item svg { width: 20px; height: 20px; flex: none; }
+.teacher-side .nav-item .open-mark { margin-left: auto; font-size: 13px; color: var(--ink-faint); }
+.teacher-side .side-switch { right: 32px; }
+
+/* ---------------- top bar ---------------- */
+.teacher-page header.top { gap: 14px; }
+.teacher-page header.top .tv-student {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 99px;
+  background: #e3f5e7; color: var(--green);
+  font-size: 13.5px; font-weight: 800;
+}
+.teacher-page header.top .tv-student[hidden] { display: none; }
+.teacher-page #refresh { display: inline-flex; align-items: center; }
+
+/* ---------------- one box at a time ---------------- */
+.teacher-page main.dash {
+  display: block;
+  max-width: 1180px;
+  margin: 0;
+  padding: 32px 34px 70px 46px;
+}
+.teacher-page .dash-col { display: contents; }
+.teacher-page .dash [hidden] { display: none !important; }
+.teacher-page .dash .card.card-button { display: none; }   /* reached from the sidebar */
+
+.tv-pick {
+  margin: 0 0 18px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #fff7e8;
+  border: 2px solid #f1d49a;
+  color: #7a4a00;
+  font-weight: 700;
+}
+.tv-pick button { margin-left: 10px; }
+
+.teacher-page .dash .card,
+.teacher-page .dash .card[open] {
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  box-shadow: none;
+}
+.teacher-page .dash .card:hover { background: #fff; }
+.teacher-page .dash .card > summary,
+.teacher-page .dash .card[open] > summary {
+  cursor: default;
+  padding: 20px 24px;
+  font-size: 19px;
+  font-weight: 900;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.teacher-page .dash .card > summary:hover { background: transparent; color: var(--ink); }
+.teacher-page .dash .card .chevron { display: none; }
+.teacher-page .card-icon,
+.teacher-page .dash .card[open] .card-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: #e3f5e7; color: var(--green);
+}
+.teacher-page .card-icon svg { width: 19px; height: 19px; }
+.teacher-page .dash .card > .body { padding: 22px 24px; }
+.teacher-page .dash .card > .body.tight { padding: 0; }
+
+/* stats */
+.teacher-page .dash .stat { background: #f6f8f6; border: 2px solid var(--line); border-radius: 12px; }
+.teacher-page .dash .stat:hover { background: #f6f8f6; transform: none; }
+.teacher-page .dash .stat .n { color: var(--ink); font-family: var(--font-ui); font-weight: 900; }
+.teacher-page .dash .bar { background: #eef1ef; }
+
+/* tables */
+.teacher-page .dash table { font-size: 14px; }
+.teacher-page .dash th { color: var(--ink-faint); font-weight: 800; border-bottom: 1px solid var(--line); }
+.teacher-page .dash td { border-bottom: 1px solid var(--line); }
+.teacher-page .dash tbody tr:hover { background: #f6fbf7; }
+.teacher-page .dash #students tbody tr.selected { background: #e3f5e7; box-shadow: inset 4px 0 0 var(--green); }
+.teacher-page .dash #students tbody tr.selected td:first-child { color: var(--green-ink); font-weight: 800; }
+
+/* buttons that were white-on-black */
+.teacher-page .dash #summarize,
+.teacher-page .dash #save-visibility {
+  background: var(--green); color: #fff; border-radius: 10px;
+  font-weight: 800; font-size: 14px; padding: 10px 18px;
+  box-shadow: 0 3px 0 var(--green-deep);
+}
+.teacher-page .dash #summarize:hover:not(:disabled),
+.teacher-page .dash #save-visibility:hover:not(:disabled) { background: #1b8f4c; }
+.teacher-page .dash #summarize:disabled { background: #e7ebe7; color: var(--ink-faint); box-shadow: none; }
+.teacher-page .dash #visibility { background: #fff; border: 2px solid var(--line); }
+
+.teacher-page .ghost-btn { border: 2px solid var(--line); background: #fff; color: var(--ink); border-radius: 10px; font-weight: 700; }
+.teacher-page .ghost-btn:hover { border-color: #bfe6cb; background: #f6fbf7; color: var(--ink); }
+
+.teacher-page .dash .diff { background: #f6f8f6; border-color: var(--line); }
+.teacher-page .dash .diff.explained { border-color: #bfe6cb; }
+.teacher-page .dash pre.json { background: #f6f8f6; }
+.teacher-page .dash .transcript { background: #fff; }
+.teacher-page .dash .transcript .turn:hover { background: #f6fbf7; }
+.teacher-page .dash .transcript::-webkit-scrollbar-thumb { background: #d6ddd8; }
+.teacher-page .assignment-row .a-meta code { background: #eef3ef; }
+
+/* banner */
+/* instructor.js swaps the banner's classes when it shows a message, so it is
+   targeted by id rather than by .dash-banner. */
+.teacher-page #banner { margin: 18px 34px 0 46px; background: #fff; border: 2px solid var(--line); border-radius: 12px; backdrop-filter: none; }
+
+/* dialogs */
+.teacher-page .modal { background: #fff; color: var(--ink); box-shadow: 0 24px 60px rgba(15, 58, 36, .25); }
+.teacher-page .modal-title { color: var(--ink); font-weight: 900; }
+.teacher-page .modal-close { background: #f3f6f3; color: var(--ink-dim); }
+.teacher-page .modal-close:hover { background: #e7ebe7; color: var(--ink); }
+.teacher-page .modal-body { scrollbar-color: #d6ddd8 transparent; }
+.teacher-page .modal-body::-webkit-scrollbar-thumb { background: #d6ddd8; }
+.teacher-page #assignment-form input[type="text"],
+.teacher-page #assignment-form textarea { background: #fff; border: 2px solid var(--line); }
+.teacher-page #assignment-form input[type="text"]:focus,
+.teacher-page #assignment-form textarea:focus { background: #fff; border-color: #bfe6cb; }
+.teacher-page #create-assignment,
+.teacher-page #create-course {
+  background: var(--green); border-color: var(--green); color: #fff; font-weight: 800;
+  box-shadow: 0 3px 0 var(--green-deep);
+}
+
+@media (max-width: 860px) {
+  .teacher-page main.dash { padding: 20px 16px 60px; }
+  .teacher-page #banner { margin: 12px 16px 0; }
+  .teacher-side .nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; }
+  .teacher-side .nav-group { display: none; }
+  .teacher-side .nav-item { width: auto; flex: none; }
+}
+
+/* What students ask Ollie */
+.ot-lead { margin: 0 0 16px; font-size: 15px; color: var(--ink); }
+.ot-private { margin: 16px 0 0; font-size: 13px; color: var(--ink-faint); }
+.ot-gap { margin-top: 16px; padding: 12px 16px; border-radius: 10px; background: #fff7e8; border: 2px solid #f1d49a; color: #7a4a00; font-size: 14px; }
+.ot-barcell { width: 30%; }
+.ot-bar { height: 8px; border-radius: 99px; background: #eef1ef; overflow: hidden; }
+.ot-bar span { display: block; height: 100%; background: var(--green); border-radius: 99px; }
+
+/* Add an exercise: the subject choice spans the form */
+.teacher-page #new-subject { width: 100%; }
+
+/* Wider sidebar on the teacher side, so longer entries such as "What
+   students ask Ollie" and "Differences & explanations" fit on one line. */
+.teacher-page .learn-shell {
+  grid-template-columns: 330px minmax(0, 1fr);
+  background: linear-gradient(90deg, #fff 0 329px, var(--line) 329px 330px, transparent 330px);
+}
+.teacher-page .teacher-side .nav-item span:not(.open-mark) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 860px) {
+  .teacher-page .learn-shell { grid-template-columns: minmax(0, 1fr); background: none; }
+}
+
+/* The course picker stays in the page for instructor.js but is never shown;
+   the teacher picks a subject instead. */
+.teacher-page .tv-hidden { display: none !important; }
+.teacher-page #subject-filter { min-width: 170px; }
+
+/* New exercise: a box on the page, styled exactly like the New subject form
+   (same fields, labels, spacing and button) instead of a pop-up. */
+.teacher-page #assignment-form input[type="text"],
+.teacher-page #assignment-form textarea,
+.teacher-page #assignment-form select,
+.teacher-page #subject-form input,
+.teacher-page #subject-form select,
+.teacher-page #subject-form textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+.teacher-page #assignment-form textarea.mono { font-family: var(--mono); font-size: 13px; line-height: 1.6; }
+.teacher-page #assignment-form :is(input, textarea, select):focus,
+.teacher-page #subject-form :is(input, textarea, select):focus {
+  outline: none; border-color: #bfe6cb; box-shadow: 0 0 0 3px rgba(31, 157, 85, .12);
+}
+.teacher-page #assignment-form .field-label,
+.teacher-page #subject-form .field-label {
+  margin: 8px 0 0; font-size: 13px; font-weight: 800; color: var(--ink-dim);
+}
+.teacher-page #assignment-form .field-label:first-child,
+.teacher-page #subject-form .field-label:first-child { margin-top: 0; }
+.teacher-page #assignment-form .form-actions { margin-top: 8px; }
+.teacher-page #create-assignment,
+.teacher-page #subject-form button[type="submit"] {
+  align-self: flex-start;
+  background: #fff; color: var(--ink);
+  border: 2px solid var(--line); border-radius: 10px;
+  box-shadow: none; font-weight: 800; padding: 9px 18px;
+}
+.teacher-page #create-assignment:hover:not(:disabled),
+.teacher-page #subject-form button[type="submit"]:hover { border-color: #bfe6cb; background: #f6fbf7; }
+/* Buttons sit at their own width, like "Add subject". */
+.teacher-page #assignment-form .ghost-btn { align-self: flex-start; }
+.teacher-page .new-exercise #toggle-assignment-list { margin-top: 18px; }

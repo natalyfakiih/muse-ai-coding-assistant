@@ -124,7 +124,7 @@ app = FastAPI(
 )
 
 from app.api import (  # noqa: E402
-    dashboard, reflection, specifications, subjects, tutoring,
+    dashboard, ollie, reflection, specifications, subjects, tutoring,
 )
 
 app.include_router(specifications.router, prefix="/api")
@@ -132,6 +132,7 @@ app.include_router(tutoring.router, prefix="/api")
 app.include_router(reflection.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(subjects.router, prefix="/api")
+app.include_router(ollie.router, prefix="/api")
 
 
 # --------------------------------------------------------------------------
@@ -229,6 +230,22 @@ if FRONTEND.exists():
     @app.get("/", include_in_schema=False)
     def home():
         return FileResponse(str(FRONTEND / "home.html"))
+
+    @app.get("/learning", include_in_schema=False)
+    def learning():
+        return FileResponse(str(FRONTEND / "learning.html"))
+
+    @app.get("/progress", include_in_schema=False)
+    def progress():
+        return FileResponse(str(FRONTEND / "progress.html"))
+
+    @app.get("/week", include_in_schema=False)
+    def week():
+        return FileResponse(str(FRONTEND / "week.html"))
+
+    @app.get("/chat", include_in_schema=False)
+    def chat():
+        return FileResponse(str(FRONTEND / "chat.html"))
 
     @app.get("/learn", include_in_schema=False)
     def index():

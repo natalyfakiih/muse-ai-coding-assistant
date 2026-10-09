@@ -18,7 +18,14 @@ const escapeHtml = (value) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const state = { courseId: "CS101", studentId: null, assignmentId: null,
-                overview: null, subjectId: null, checkers: null };
+                overview: null, subjectId: null, checkers: null,
+                // The subject picker in the top bar: every class number is
+                // limited to this subject's exercises.
+                subjectFilter: null };
+try { state.subjectFilter = Number(localStorage.getItem("muse.teacher.subject")) || null; } catch { /* ignore */ }
+
+/** "&subject_id=…" / "?subject_id=…" for the requests the picker filters. */
+const bySubject = (joiner = "?") => state.subjectFilter ? `${joiner}subject_id=${state.subjectFilter}` : "";
 
 function banner(text, kind = "") {
   const element = $("banner");
@@ -35,7 +42,7 @@ const truncate = (text, n) => {
 
 /* ------------------------------------------------------------- class view */
 async function loadClass() {
-  const patterns = await api(`/courses/${state.courseId}/analytics/class-patterns`);
+  const patterns = await api(`/courses/${state.courseId}/analytics/class-patterns${bySubject()}`);
   const mix = patterns.question_mix || {};
   const total = (mix.factual || 0) + (mix.problem_solving || 0);
 
@@ -81,6 +88,30 @@ async function loadSubjects() {
     select.addEventListener("change", showCheckerNote);
   }
   showCheckerNote();
+
+  // The top-bar subject picker. Starts on the remembered subject, else the first.
+  const filter = $("subject-filter");
+  if (filter) {
+    if (!subjects.some((s) => s.id === state.subjectFilter)) {
+      state.subjectFilter = subjects.length ? subjects[0].id : null;
+    }
+    filter.innerHTML = subjects.map((s) =>
+      `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+    if (state.subjectFilter) filter.value = String(state.subjectFilter);
+  }
+
+  // "Add an exercise" files the exercise under a subject, so students see it
+  // on that subject's card. Keep the choice if it still exists.
+  const pick = $("new-subject");
+  if (pick) {
+    const keep = pick.value;
+    pick.innerHTML = subjects.length
+      ? subjects.map((s) => `<option value="${s.id}" data-checker="${escapeHtml(s.checker)}">${escapeHtml(s.name)} (${escapeHtml(s.checker)})</option>`).join("")
+      : `<option value="">Add a subject first (Subjects &amp; notes)</option>`;
+    if (keep && subjects.some((s) => String(s.id) === keep)) pick.value = keep;
+    else if (state.subjectFilter) pick.value = String(state.subjectFilter);
+    syncExerciseFields();
+  }
 
   $("subject-list").innerHTML = subjects.length
     ? subjects.map((s) => `
@@ -202,7 +233,7 @@ async function tryOllie(event) {
 async function loadStudents() {
   // One call for the whole roster. The previous version fetched a full overview
   // per student, which was N requests to render a table of N rows.
-  const data = await api(`/courses/${state.courseId}/analytics/insights`);
+  const data = await api(`/courses/${state.courseId}/analytics/insights${bySubject()}`);
   state.classNorms = data.class_norms;
 
   // The distribution belongs beside the class tiles: it is the one number an
@@ -325,7 +356,7 @@ async function renderStudentDashboard(studentId) {
   host.innerHTML = `<p class="tagline">Loading…</p>`;
   let data;
   try {
-    data = await api(`/students/${studentId}/insights?viewer=instructor`);
+    data = await api(`/students/${studentId}/insights?viewer=instructor${bySubject("&")}`);
   } catch (err) {
     host.innerHTML = `<p class="tagline">Could not load this student's dashboard.</p>`;
     return;
@@ -567,6 +598,11 @@ async function createAssignment(event) {
   const status = $("assignment-form-status");
   const button = $("create-assignment");
 
+  const subjectOption = $("new-subject").selectedOptions[0];
+  const subjectId = Number($("new-subject").value) || null;
+  const isMath = subjectOption && subjectOption.dataset.checker === "math";
+  const expected = $("new-expected").value.trim();
+  const tolerance = $("new-tolerance").value.trim();
   const prompt = $("new-prompt").value.trim();
   const entryPoint = $("new-entry-point").value.trim();
   const starterCode = $("new-starter-code").value;
@@ -574,8 +610,13 @@ async function createAssignment(event) {
     .map((el) => el.value.trim())
     .filter(Boolean);
 
+  if (!subjectId) { status.textContent = "Pick a subject (add one under Subjects & notes first)."; return; }
   if (!prompt) { status.textContent = "Write the exercise prompt first."; return; }
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(entryPoint)) {
+  if (isMath && !expected) { status.textContent = "Write the expected answer, e.g. 19.8 m/s."; return; }
+  if (isMath && tolerance && !(Number(tolerance) >= 0 && Number(tolerance) <= 1)) {
+    status.textContent = "Tolerance is a number between 0 and 1, e.g. 0.05."; return;
+  }
+  if (!isMath && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entryPoint)) {
     status.textContent = "Function name must be a valid identifier, e.g. \"fib\".";
     return;
   }
@@ -590,14 +631,18 @@ async function createAssignment(event) {
       method: "POST",
       body: JSON.stringify({
         course_id: state.courseId,
+        subject_id: subjectId,
         prompt_text: prompt,
-        entry_point: entryPoint,
-        starter_code: starterCode || null,
+        entry_point: isMath ? null : entryPoint,
+        starter_code: isMath ? null : (starterCode || null),
+        expected_answer: isMath ? expected : null,
+        tolerance: isMath && tolerance ? Number(tolerance) : null,
         items,
       }),
     });
-    status.textContent = "Created — it appears on the student side as a new assignment.";
+    status.textContent = `Created. Students now see it under ${subjectOption.textContent.replace(/ \(.*\)$/, "")} on My learning.`;
     $("assignment-form").reset();
+    syncExerciseFields();
     $("rubric-rows").innerHTML = "";
     addRubricRow();
     loadAssignments();
@@ -614,6 +659,14 @@ async function createAssignment(event) {
    A plain overlay toggled with a CSS class, instead of an inline accordion
    panel or the native <dialog> element — the form is long enough that
    expanding it in place pushed everything below it down the page. */
+/** Programming exercises need a function name; maths ones need the answer. */
+function syncExerciseFields() {
+  const option = $("new-subject").selectedOptions[0];
+  const isMath = option && option.dataset.checker === "math";
+  $("python-fields").classList.toggle("hidden", isMath);
+  $("math-fields").classList.toggle("hidden", !isMath);
+}
+
 function openAssignmentDialog() {
   $("assignment-form-status").textContent = "";
   // Always reopen on the form, not mid-way through a previous "show all" view.
@@ -633,6 +686,7 @@ function toggleAssignmentList() {
 }
 
 $("open-assignment-dialog").addEventListener("click", openAssignmentDialog);
+$("new-subject").addEventListener("change", syncExerciseFields);
 $("close-assignment-dialog").addEventListener("click", closeAssignmentDialog);
 $("toggle-assignment-list").addEventListener("click", toggleAssignmentList);
 // Click on the backdrop (outside the popup's own box) closes it too.
@@ -762,7 +816,8 @@ async function boot() {
       banner("");
     }
     await loadCourses();
-    await Promise.all([loadClass(), loadStudents(), loadAssignments(), loadSubjects()]);
+    await loadSubjects();
+    await Promise.all([loadClass(), loadStudents(), loadAssignments()]);
   } catch (error) {
     banner(error.message, "bad");
   }
@@ -770,6 +825,18 @@ async function boot() {
 
 // This page is a snapshot, not a live feed: reload after a student submits.
 $("refresh").addEventListener("click", boot);
+
+// Switching subject reloads every class number for that subject.
+$("subject-filter").addEventListener("change", async (event) => {
+  state.subjectFilter = Number(event.target.value) || null;
+  try { localStorage.setItem("muse.teacher.subject", String(state.subjectFilter || "")); } catch { /* ignore */ }
+  if ($("new-subject")) { $("new-subject").value = String(state.subjectFilter); syncExerciseFields(); }
+  try {
+    await Promise.all([loadClass(), loadStudents()]);
+  } catch (error) {
+    banner(error.message, "bad");
+  }
+});
 boot();
 
 $("subject-form").addEventListener("submit", createSubject);

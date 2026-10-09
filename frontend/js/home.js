@@ -1,11 +1,13 @@
 /* Student home — fills in today's date, the name and the streak week.
- * The numbers below are demo values for Sara; swap STUDENT for an API call
+ * The numbers below are demo values for Nataly; swap STUDENT for an API call
  * once the backend exposes streak and XP. */
 
 (() => {
-  const STUDENT = { name: "Sara", streak: 7, xp: 240 };
+  const STUDENT = { name: "Nataly", streak: 7, xp: 240 };
 
-  const $ = (id) => document.getElementById(id);
+  // Shared by every student page (overview, my learning), so each element is
+  // optional: a page that doesn't have it simply skips it.
+  const $ = (id) => document.getElementById(id) || { set textContent(_) {}, setAttribute() {} };
   const today = new Date();
 
   $("student-name").textContent = STUDENT.name;
@@ -17,6 +19,8 @@
   $("today").textContent = today.toLocaleDateString("en-US",
     { weekday: "long", month: "long", day: "numeric" });
 
+  if (!document.getElementById("week")) return;
+
   // Week runs Monday → Sunday. Days before today are done, today is the
   // flame, the rest are still ahead.
   const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
@@ -25,7 +29,7 @@
   const todayIdx = (today.getDay() + 6) % 7; // Monday = 0
   const names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-  $("week").innerHTML = LETTERS.map((l, i) => {
+  document.getElementById("week").innerHTML = LETTERS.map((l, i) => {
     const state = i < todayIdx ? "done" : i === todayIdx ? "today" : "ahead";
     const label = `${names[i]}: ${state === "done" ? "studied" : state === "today" ? "today" : "coming up"}`;
     const inner = state === "done" ? CHECK : state === "today" ? FLAME : "";

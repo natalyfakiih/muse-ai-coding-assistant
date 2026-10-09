@@ -1,13 +1,15 @@
 """Section 6.1 — Specification Gate endpoints."""
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Assignment, Specification, Student
+from app.models import Assignment, Specification, Student, Subject
 from app.modules import spec_gate
-from app.schemas import SpecLock, SpecMessage
+from app.schemas import AssignmentCreate, SpecLock, SpecMessage
 
 router = APIRouter(tags=["specification-gate"])
 
@@ -104,6 +106,68 @@ def list_assignments(course_id: str | None = None, db: Session = Depends(get_db)
     if course_id:
         query = query.filter(Assignment.course_id == course_id)
     return [_assignment_public(a) for a in query.order_by(Assignment.id).all()]
+
+
+def _slugify_item_id(text: str, used: set[str]) -> str:
+    base = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:40] or "item"
+    candidate, n = base, 2
+    while candidate in used:
+        candidate = f"{base}_{n}"
+        n += 1
+    used.add(candidate)
+    return candidate
+
+
+@router.post("/assignments", status_code=201)
+def create_assignment(body: AssignmentCreate, db: Session = Depends(get_db)):
+    """Instructor-authored exercise, from the dashboard's "Add an exercise".
+
+    Restored: this endpoint went missing in an earlier commit, so the form
+    had nowhere to post. It now also takes the subject, because the student
+    pages list exercises under their subject; one without a subject would
+    never show up for a student.
+
+    Rubric items are stored without an explicit "field": spec_gate's
+    required_field() infers goal/inputs/outputs/examples from the wording.
+    """
+    subject = None
+    if body.subject_id is not None:
+        subject = db.get(Subject, body.subject_id)
+        if subject is None:
+            raise HTTPException(404, "No such subject.")
+    checker = subject.checker if subject else "python"
+
+    used_ids: set[str] = set()
+    items = []
+    for index, item in enumerate(body.items):
+        explicit = (item.id or "").strip()
+        item_id = explicit or _slugify_item_id(item.text, used_ids)
+        if explicit:
+            used_ids.add(item_id)
+        items.append({"id": item_id, "priority": index + 1, "text": item.text.strip()})
+
+    rubric: dict = {"items": items}
+    if checker == "math":
+        if not (body.expected_answer or "").strip():
+            raise HTTPException(400, "A maths exercise needs the expected answer, e.g. 19.8 m/s.")
+        rubric["expected_answer"] = body.expected_answer.strip()
+        rubric["tolerance"] = body.tolerance if body.tolerance is not None else 0.05
+    else:
+        if not (body.entry_point or "").strip():
+            raise HTTPException(400, "A programming exercise needs the function name students must define.")
+        rubric["entry_point"] = body.entry_point.strip()
+
+    assignment = Assignment(
+        course_id=body.course_id.strip(),
+        prompt_text=body.prompt_text.strip(),
+        starter_code=(body.starter_code or None) if checker != "math" else None,
+        rubric=rubric,
+        subject_id=subject.id if subject else None,
+    )
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+    return _assignment_public(assignment)
 
 
 @router.get("/students")

@@ -1,0 +1,357 @@
+/* The tutor page (/learn) in the MUSE student look: light, green, Nunito, with
+   the same sidebar as the other student pages.
+
+   Loaded LAST on index.html only. styles.css builds almost everything from
+   tokens, so most of the work is redefining them; the rest overrides the few
+   rules that hard-code white-on-dark. The instructor page keeps its own look. */
+
+:root {
+  --bg: #f7f9f7;
+  --bg-rgb: 247, 249, 247;
+  --panel: #ffffff;
+  --panel-2: #f3f6f3;
+  --line: #e7ebe7;
+  --ink: #13261c;
+  --ink-dim: #4f5d55;
+  --ink-faint: #7d8882;
+  --accent: #1f9d55;
+  --accent-rgb: 31, 157, 85;
+  --accent-dim: #e3f5e7;
+  --ok: #1f8a4c;
+  --warn: #9a5b00;
+  --bad: #c23b3b;
+  --drift: #9a5b00;
+  --revision: #1f7fd6;
+  --bug: #c23b3b;
+  --ok-bg: #e6f4ea;
+  --drift-bg: #fbf1dc;
+  --bug-bg: #fce8ec;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --hairline: rgba(19, 38, 28, .16);
+  --hairline-soft: rgba(19, 38, 28, .08);
+  --font-ui: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ollie-name: #9a5b00;
+
+  --green: #1f9d55;
+  --green-deep: #13703a;
+  --green-ink: #0f3a24;
+  --peach: #f6c8b1;
+  color-scheme: light;
+}
+
+body.learn-page { background: var(--bg); color: var(--ink); font-size: 15px; }
+
+/* ---------------- layout: sidebar + page ---------------- */
+.learn-shell {
+  display: grid;
+  grid-template-columns: 267px minmax(0, 1fr);
+  min-height: 100vh;
+  background: linear-gradient(90deg, #fff 0 266px, var(--line) 266px 267px, transparent 267px);
+}
+.learn-col { min-width: 0; }
+
+.muse-side {
+  position: sticky; top: 0;
+  height: 100vh;
+  padding: 36px 22px 32px 18px;
+  background: #fff;
+}
+.muse-side a { color: inherit; text-decoration: none; }
+.muse-side svg { display: block; }
+.muse-side .logo { display: flex; align-items: center; gap: 4px; padding-left: 20px; color: var(--green); }
+.muse-side .logo-word { font-family: "Fredoka", "Nunito", sans-serif; font-weight: 700; font-size: 44px; line-height: 1; letter-spacing: -.5px; }
+.muse-side .logo-sprout { width: 30px; height: 30px; margin-top: -6px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.muse-side .logo-tag { margin: 18px 0 0 20px; font-size: 12px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--ink-dim); line-height: 1.5; max-width: 250px; }
+.muse-side .nav { display: flex; flex-direction: column; gap: 12px; margin-top: 44px; }
+.muse-side .nav-item {
+  display: flex; align-items: center; gap: 18px;
+  height: 58px; padding: 0 20px;
+  border: 2px solid transparent; border-radius: 10px;
+  font-size: 17.5px; font-weight: 700; color: var(--ink-dim);
+  transition: background .15s, color .15s;
+}
+.muse-side .nav-item:hover { background: #f3f6f3; color: var(--ink); }
+.muse-side .nav-item:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+.muse-side .nav-item.active { background: #e3f5e7; border-color: var(--peach); color: var(--green); font-weight: 800; }
+.muse-side .ico { width: 26px; height: 26px; flex: none; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.muse-side .ico-home { stroke: var(--ink-dim); }
+.muse-side .ico-book { stroke: #1f7fd6; }
+.muse-side .ico-bars { stroke: #e9821b; stroke-width: 2.6; }
+.muse-side .ico-cal  { stroke: #7b5ad6; }
+.muse-side .ico-cal .dots { fill: #7b5ad6; stroke: none; }
+.muse-side .ico-chat { stroke: #1f7fd6; }
+
+@media (max-width: 860px) {
+  .learn-shell { grid-template-columns: minmax(0, 1fr); background: none; }
+  .muse-side { position: static; height: auto; padding: 18px 16px; border-bottom: 1px solid var(--line); }
+  .muse-side .logo, .muse-side .logo-tag { padding-left: 4px; margin-left: 0; }
+  .muse-side .logo-word { font-size: 36px; }
+  .muse-side .nav { flex-direction: row; overflow-x: auto; margin-top: 16px; gap: 6px; }
+  .muse-side .nav-item { flex: none; height: 46px; padding: 0 14px; gap: 10px; font-size: 15px; }
+}
+
+/* ---------------- top bar ---------------- */
+header.top {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  padding: 18px 34px 18px 46px;
+  gap: 14px;
+}
+header.top .crumbs { display: flex; align-items: center; gap: 12px; font-size: 16.5px; font-weight: 600; color: var(--ink-dim); }
+header.top .crumbs a { color: var(--ink-dim); text-decoration: none; }
+header.top .crumbs a:hover { color: var(--green); }
+header.top .crumbs svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+header.top .crumbs .here { color: var(--ink); font-weight: 800; }
+header.top .tagline { color: var(--ink-dim); font-size: 13px; font-weight: 700; }
+header.top select,
+header.top button {
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 7px 14px;
+}
+header.top button.linkish { text-decoration: none; }
+header.top button:hover:not(:disabled),
+header.top select:hover { border-color: #bfe6cb; background: #f6fbf7; color: var(--ink); }
+header.top a.tagline:hover { color: var(--green); }
+
+/* ---------------- controls ---------------- */
+select, textarea, input { background: #fff; border: 2px solid var(--line); color: var(--ink); }
+textarea:focus, input:focus, select:focus { border-color: #bfe6cb; background: #fff; box-shadow: 0 0 0 3px rgba(31, 157, 85, .12); }
+
+button { color: var(--ink); border: 2px solid var(--line); border-radius: 10px; font-weight: 700; }
+button:hover:not(:disabled) { border-color: #bfe6cb; color: var(--ink); background: #f6fbf7; }
+button.primary {
+  background: var(--green); border-color: var(--green); color: #fff; font-weight: 800;
+  box-shadow: 0 3px 0 var(--green-deep);
+}
+button.primary:hover:not(:disabled) { background: #1b8f4c; border-color: #1b8f4c; color: #fff; }
+button.primary:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--green-deep); }
+button.ghost { border: 2px dashed var(--line); color: var(--ink-dim); background: transparent; }
+button.ghost:hover { border-color: #bfe6cb; color: var(--green); background: #f6fbf7; }
+button:focus-visible, select:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+
+/* ---------------- phase rail ---------------- */
+.phases { background: #fff; border-bottom: 1px solid var(--line); padding: 0 34px 0 40px; }
+.phase { font-size: 14.5px; font-weight: 700; padding: 14px 18px 12px; border-bottom-width: 3px; color: var(--ink-faint); }
+.phase .num { width: 24px; height: 24px; font-size: 12px; font-weight: 800; background: #eef1ef; color: var(--ink-dim); }
+.phase.active { color: var(--ink); border-bottom-color: var(--green); font-weight: 800; }
+.phase.active .num { background: var(--green); color: #fff; }
+.phase.done { color: var(--green); }
+.phase.done .num { background: #e3f5e7; color: var(--green); }
+.phase:hover:not([aria-disabled="true"]):not(.active) { background: #f6fbf7; color: var(--ink); }
+
+/* ---------------- page body ---------------- */
+main { padding: 32px 34px 60px 46px; max-width: none; }
+.cols { gap: 24px; }
+
+.card {
+  background: #fff;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  box-shadow: none;
+}
+.card > h2 {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 900;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.card > h2 .right { color: var(--ink-faint); font-size: 12.5px; font-weight: 600; }
+.card .body { padding: 20px 24px; }
+
+.messages { padding: 18px; gap: 14px; }
+.msg { border-radius: 12px; }
+.msg.student { background: #e3f5e7; color: var(--green-ink); border-radius: 14px 14px 4px 14px; }
+.msg.muse { background: #f6f8f6; border: 1px solid var(--line); }
+.msg.muse.explain { background: rgba(31, 157, 85, .06); border-color: #bfe6cb; }
+.msg.muse.shortfall { background: #fff7e8; border-color: #f1d49a; color: var(--warn); }
+.composer { border-top: 1px solid var(--line); padding: 14px 16px; }
+
+.tag { border-width: 1.5px; font-weight: 700; }
+.spec-field code, .msg code { color: var(--green-deep); }
+
+.rubric li.current .box { border-color: var(--green); background: var(--green); color: #fff; }
+.rubric li.met .box { background: #e3f5e7; }
+.progress { height: 8px; background: #eef1ef; border-radius: 99px; }
+.progress > span { background: var(--green); border-radius: 99px; }
+.locked-notice { background: #f3faf5; border-color: #bfe6cb; }
+
+.editor-note { border-top: 1px solid var(--line); }
+#editor { border-top: 0; }
+
+/* Start / mode pickers */
+.start-h { font-weight: 900; letter-spacing: -.2px; color: var(--ink); }
+.start-sub { color: var(--ink-dim); }
+.subject-card { background: #fff; border: 2px solid var(--line); border-radius: 14px; color: var(--ink); box-shadow: none; }
+.subject-card:hover:not(:disabled) { border-color: #bfe6cb; background: #fff; box-shadow: 0 0 0 4px #e3f5e7; }
+
+/* Learn: note tabs */
+.note-tab.active .nt-n { background: var(--green); color: #fff; }
+
+/* Banner */
+.banner { background: #fff; border: 2px solid var(--line); border-radius: 12px; }
+
+/* Ollie: the same otter as everywhere else in MUSE, in place of the drawn face. */
+.ollie {
+  background: url("/static/img/ollie.png") center / contain no-repeat;
+  width: calc(var(--ollie-size, 34px) * .8);
+}
+.ollie svg { visibility: hidden; }
+
+/* Meme toggle and overlay sit on the light page now. */
+.meme-toggle { background: #fff; border: 2px solid var(--line); color: var(--ink); box-shadow: 0 4px 12px rgba(15, 58, 36, .1); }
+
+/* ---------------- before practice: the briefing ---------------- */
+.pi { max-width: 980px; }
+.pi .start-intro .ollie-says { display: flex; align-items: center; gap: 14px; }
+.pi .ollie-line { margin: 0; font-size: 15px; color: var(--ink-dim); line-height: 1.55; }
+
+.pi-steps {
+  list-style: none; margin: 4px 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
+}
+.pi-step {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 20px; background: #fff;
+  border: 2px solid var(--line); border-radius: 14px;
+}
+.pi-n {
+  flex: none; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: #e3f5e7; color: var(--green); font-weight: 900; font-size: 14px;
+}
+.pi-step h3 { margin: 3px 0 0; font-size: 16px; font-weight: 900; }
+.pi-step p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-dim); }
+
+.pi-sub { margin: 34px 0 14px; font-size: 18px; font-weight: 900; }
+.pi-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.pi-ex {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto;
+  align-items: center; gap: 16px;
+  padding: 16px 18px; background: #fff;
+  border: 2px solid var(--line); border-radius: 12px;
+}
+.pi-ex.is-last { border-color: #bfe6cb; box-shadow: 0 0 0 4px #e3f5e7; }
+.pi-ex-n { font-size: 18px; font-weight: 900; color: var(--ink-faint); text-align: center; font-variant-numeric: tabular-nums; }
+.pi-ex-t { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--ink); }
+.pi-status {
+  font-size: 12px; font-weight: 800; white-space: nowrap;
+  padding: 5px 10px; border-radius: 99px;
+  background: #eef1ef; color: var(--ink-dim);
+}
+.pi-status.st-plan { background: #fff3e0; color: #9a5b00; }
+.pi-status.st-code { background: #e3f5e7; color: var(--green); }
+.pi-go { white-space: nowrap; }
+#pi-back { margin-top: 24px; }
+
+@media (max-width: 860px) {
+  .pi-steps { grid-template-columns: minmax(0, 1fr); }
+  .pi-ex { grid-template-columns: 28px minmax(0, 1fr); }
+  .pi-ex .pi-status, .pi-ex .pi-go { grid-column: 2; justify-self: start; }
+}
+
+/* The student and subject pickers and the instructor link are hidden on the
+   student page. They stay in the HTML because app.js still reads the selected
+   student and subject from them; subjects are chosen on My learning now. */
+header.top label[for="student"],
+header.top #student,
+header.top label[for="subject"],
+header.top #subject,
+header.top a[href="/instructor"],
+header.top #change-mode { display: none !important; }
+
+/* ---------------- reflection, simplified ---------------- */
+#phase-3 #ollie-reflect { margin-bottom: 20px; }
+.reflect-main { align-items: start; }
+.r-step {
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--green); color: #fff;
+  font-size: 13px; font-weight: 900;
+}
+.r-step.light { width: 22px; height: 22px; background: rgba(255, 255, 255, .25); margin-right: 4px; }
+.reflect-submit {
+  border-top: 1px solid var(--line);
+  padding: 18px 24px 22px;
+  background: #fbfdfb;
+}
+.reflect-submit .tagline { margin: 0 0 14px; font-size: 14px; color: var(--ink-dim); }
+.reflect-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.reflect-actions .primary { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; font-size: 15px; }
+
+.reflect-more { margin-top: 24px; }
+.reflect-more > summary {
+  list-style: none; cursor: pointer;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+  padding: 18px 24px;
+  font-size: 17px; font-weight: 900; color: var(--ink);
+}
+.reflect-more > summary::-webkit-details-marker { display: none; }
+.reflect-more > summary::before {
+  content: ""; width: 9px; height: 9px; flex: none; align-self: center;
+  border-right: 2.5px solid var(--ink-dim); border-bottom: 2.5px solid var(--ink-dim);
+  transform: rotate(-45deg); transition: transform .15s; margin-right: 4px;
+}
+.reflect-more[open] > summary::before { transform: rotate(45deg); }
+.reflect-more > summary .tagline { font-size: 13px; font-weight: 600; color: var(--ink-faint); }
+.reflect-more > summary:focus-visible { outline: 3px solid var(--green); outline-offset: -3px; border-radius: 14px; }
+.reflect-more[open] > summary { border-bottom: 1px solid var(--line); }
+
+.rm-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 24px 0; }
+.rm-tab { padding: 8px 16px; font-size: 14px; }
+.rm-tab.active { background: #e3f5e7; border-color: #bfe6cb; color: var(--green); }
+.rm-panel { padding: 16px 24px 24px; }
+.rm-note { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; font-size: 13.5px; color: var(--ink-faint); }
+
+/* Demo-only switch to the teacher's page, at the bottom of the sidebar. */
+.muse-side { display: flex; flex-direction: column; }
+.muse-side .side-switch {
+  margin-top: auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  font-size: 13.5px; font-weight: 700;
+  color: var(--ink-faint);
+  border-radius: 10px;
+}
+.muse-side .side-switch svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.muse-side .side-switch:hover { color: var(--ink); background: #f3f6f3; }
+@media (max-width: 860px) { .muse-side .side-switch { margin-top: 8px; padding: 10px 4px; } }
+
+/* Teacher-view switch: a tab tucked into the bottom-right edge of the page.
+   Only its label peeks out; on hover (or keyboard focus) it slides up to show
+   the whole button, and slides back down when the pointer leaves. */
+.muse-side .side-switch {
+  position: fixed;
+  right: 170px;
+  bottom: 0;
+  z-index: 900;
+  margin: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  min-width: 210px;
+  padding: 10px 18px 22px;
+  background: #1f9d55;
+  color: #fff;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -4px 18px rgba(15, 58, 36, .18);
+  font-size: 14px; font-weight: 800;
+  text-decoration: none;
+  transform: translateY(calc(100% - 40px));
+  transition: transform .32s cubic-bezier(.2, .8, .2, 1), background .15s;
+}
+.muse-side .side-switch:hover, .muse-side .side-switch:focus-visible { transform: translateY(0); background: #1b8f4c; color: #fff; }
+.muse-side .side-switch:focus-visible { outline: 3px solid #0f3a24; outline-offset: 2px; }
+.muse-side .side-switch .ss-top { display: flex; align-items: center; gap: 9px; height: 20px; }
+.muse-side .side-switch svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.muse-side .side-switch .ss-more { font-size: 13px; font-weight: 600; opacity: .9; padding-left: 27px; }
+@media (max-width: 860px) { .muse-side .side-switch { right: 16px; min-width: 0; } }
+@media (prefers-reduced-motion: reduce) { .muse-side .side-switch { transition: none; } }
+
+/* The second line only appears once the tab has slid up. */
+.muse-side .side-switch .ss-more { opacity: 0; transition: opacity .2s; }
+.muse-side .side-switch:hover .ss-more, .muse-side .side-switch:focus-visible .ss-more { opacity: .9; }

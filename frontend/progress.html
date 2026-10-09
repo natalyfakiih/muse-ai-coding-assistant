@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MUSE — my progress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@400;600;700;800;900&display=swap">
+<link rel="stylesheet" href="/static/css/home.css?v=20261010c">
+<link rel="stylesheet" href="/static/css/progress.css?v=20261009e">
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="side">
+    <a class="logo" href="/" aria-label="MUSE home">
+      <span class="logo-word">muse</span>
+      <svg class="logo-sprout" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 29V15" />
+        <path d="M16 17c0-5 3.5-8.5 9-8.5 0 5.5-3.5 8.5-9 8.5z" />
+        <path d="M16 20c-.5-4-3.5-6.5-8-6.5 0 4.2 3 6.5 8 6.5z" />
+      </svg>
+    </a>
+    <div class="logo-tag">A little better, every day</div>
+
+    <nav class="nav" aria-label="Student">
+      <a class="nav-item" href="/">
+        <svg class="ico ico-home-muted" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3.5 10.5 12 3.5l8.5 7V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-6h-5v6H5A1.5 1.5 0 0 1 3.5 19z"/>
+        </svg>
+        <span>My overview</span>
+      </a>
+      <a class="nav-item" href="/learning">
+        <svg class="ico ico-book" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2.5 5c3-1.3 6.3-1.3 9.5.8v14c-3.2-2.1-6.5-2.1-9.5-.8z"/>
+          <path d="M21.5 5c-3-1.3-6.3-1.3-9.5.8v14c3.2-2.1 6.5-2.1 9.5-.8z"/>
+        </svg>
+        <span>My learning</span>
+      </a>
+      <a class="nav-item active" href="/progress" aria-current="page">
+        <svg class="ico ico-bars" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 20v-6"/><path d="M12 20V9"/><path d="M19 20V4"/>
+        </svg>
+        <span>My progress</span>
+      </a>
+      <a class="nav-item" href="/week">
+        <svg class="ico ico-cal" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3.5" y="5" width="17" height="15.5" rx="2"/>
+          <path d="M3.5 9.5h17"/><path d="M8 3v4"/><path d="M16 3v4"/>
+          <g class="dots"><circle cx="8" cy="13" r=".9"/><circle cx="12" cy="13" r=".9"/><circle cx="16" cy="13" r=".9"/>
+          <circle cx="8" cy="16.5" r=".9"/><circle cx="12" cy="16.5" r=".9"/><circle cx="16" cy="16.5" r=".9"/></g>
+        </svg>
+        <span>My week</span>
+      </a>
+      <a class="nav-item" href="/chat">
+        <svg class="ico ico-chat" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3.5c5 0 9 3.4 9 7.8s-4 7.8-9 7.8c-1.2 0-2.3-.2-3.4-.5L3.5 20.5l1.6-4.2C3.8 14.9 3 13.2 3 11.3 3 6.9 7 3.5 12 3.5z"/>
+        </svg>
+        <span>Chat with Ollie</span>
+      </a>
+    </nav>
+    <a class="side-switch" href="/instructor" aria-label="Switch to teacher view">
+      <span class="ss-top">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h11l-3-3"/><path d="M17 17H6l3 3"/></svg>
+        Teacher view
+      </span>
+      <span class="ss-more">See the class dashboard →</span>
+    </a>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+
+    <header class="topbar">
+      <div class="crumbs">
+        <span class="crumb-muted">My space</span>
+        <svg class="crumb-sep" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+        <span class="crumb-current">My progress</span>
+      </div>
+
+      <div class="top-stats">
+        <div class="stat stat-streak" title="Day streak">
+          <svg class="flame" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2.5c.6 3-1 4.8-2.6 6.6C7.8 10.9 6 12.8 6 15.6 6 19 8.7 21.5 12 21.5s6-2.5 6-5.9c0-2.4-1.1-4.2-2.2-5.4-.3 1.3-1 2.2-2 2.6.3-3.6-.5-7.3-1.8-10.3z"/>
+            <path class="flame-in" d="M12 21.5c-1.7 0-3-1.3-3-3 0-1.8 1.5-2.7 2.3-4 .9 1.1 3.7 2.2 3.7 4 0 1.7-1.3 3-3 3z"/>
+          </svg>
+          <span id="top-streak">7</span>
+        </div>
+        <div class="stat stat-xp" title="Experience points">
+          <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M13.5 2.5 4.5 13.5h7l-1 8 9-11h-7z"/>
+          </svg>
+          <span><span id="top-xp">240</span> XP</span>
+        </div>
+        <button class="bell" type="button" aria-label="Notifications (1 new)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>
+          </svg>
+          <span class="bell-dot"></span>
+        </button>
+        <div class="avatar" id="avatar" aria-label="Nataly">N</div>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <div class="greet-row">
+        <div>
+          <h1 class="greet">Look how far you've come
+            <span class="sprout" aria-hidden="true">🌱</span></h1>
+          <p class="greet-sub">Your grades tell one part of the story. Your growth tells the rest.</p>
+        </div>
+        <div class="date">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3.5" y="5" width="17" height="15.5" rx="2"/>
+            <path d="M3.5 9.5h17"/><path d="M8 3v4"/><path d="M16 3v4"/>
+            <circle cx="8" cy="13" r=".7"/><circle cx="12" cy="13" r=".7"/><circle cx="16" cy="13" r=".7"/>
+            <circle cx="8" cy="16.5" r=".7"/><circle cx="12" cy="16.5" r=".7"/>
+          </svg>
+          <span id="today">Friday, October 9</span>
+        </div>
+      </div>
+
+      <!-- Growth skills. Each score is worked out from the counts in its
+           caption, so the number can always be explained. -->
+      <div class="skills" id="skills"></div>
+
+      <!-- The strength MUSE builds on, then the story of the last few weeks. -->
+      <section class="strength" aria-labelledby="strength-h">
+        <svg class="strength-ico" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 27V14"/>
+          <path d="M16 15c0-4.6 3.2-7.8 8.2-7.8 0 5-3.2 7.8-8.2 7.8z"/>
+          <path d="M16 18c-.4-3.7-3.2-6-7.3-6 0 3.8 2.7 6 7.3 6z"/>
+          <path d="M10.5 27h11"/>
+        </svg>
+        <div>
+          <h2 id="strength-h">Your strength is your next stepping stone</h2>
+          <p id="strength-p">You're a strong visual thinker. Let's use diagrams and everyday
+            examples to make math feel less abstract.</p>
+        </div>
+      </section>
+
+      <hr class="divider">
+
+      <section class="story" aria-labelledby="story-h">
+        <h2 class="story-h" id="story-h"><span id="story-name">Nataly</span>'s comeback, one step at a time</h2>
+        <ol class="timeline" id="timeline"></ol>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="/static/js/home.js?v=20261009d"></script>
+<script src="/static/js/progress.js?v=20261009e"></script>
+</body>
+</html>

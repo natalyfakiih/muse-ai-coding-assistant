@@ -11,6 +11,13 @@ from app.models import Assignment, Course, LLMCall, Student
 from app.modules import dashboard, insights, profiler
 from app.schemas import CourseCreate, VisibilityBody
 
+def _subject_assignments(db: Session, subject_id: int | None) -> set[int] | None:
+    """A subject's exercise ids, for the teacher's subject picker; None = all."""
+    if subject_id is None:
+        return None
+    return set(db.scalars(select(Assignment.id).where(Assignment.subject_id == subject_id)).all())
+
+
 router = APIRouter(tags=["instructor-dashboard"])
 
 
@@ -51,8 +58,9 @@ def student_overview(course_id: str, student_id: int, db: Session = Depends(get_
 
 
 @router.get("/courses/{course_id}/analytics/class-patterns")
-def class_patterns(course_id: str, db: Session = Depends(get_db)):
-    return dashboard.class_patterns(db, course_id)
+def class_patterns(course_id: str, subject_id: int | None = None,
+                   db: Session = Depends(get_db)):
+    return dashboard.class_patterns(db, course_id, _subject_assignments(db, subject_id))
 
 
 @router.get("/students/{student_id}/narrative-summary")
@@ -90,6 +98,7 @@ def dependency_profile(
 def student_insights(
     student_id: int,
     viewer: str = Query("student", pattern="^(student|instructor)$"),
+    subject_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     """Timing, strengths, weaknesses and the plan for one student.
@@ -101,16 +110,19 @@ def student_insights(
     browser never receives it.
     """
     try:
-        return insights.student_insights(db, student_id, viewer=viewer)
+        return insights.student_insights(db, student_id, viewer=viewer,
+                                         assignment_ids=_subject_assignments(db, subject_id))
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
 
 
 @router.get("/courses/{course_id}/analytics/insights")
-def class_insights(course_id: str, db: Session = Depends(get_db)):
+def class_insights(course_id: str, subject_id: int | None = None,
+                   db: Session = Depends(get_db)):
     """The roster with a status tier beside every name, plus class averages.
-    Instructor-facing by definition: it is a list of other people."""
-    return insights.class_insights(db, course_id)
+    Instructor-facing by definition: it is a list of other people.
+    `subject_id` limits every number to that subject's exercises."""
+    return insights.class_insights(db, course_id, _subject_assignments(db, subject_id))
 
 
 @router.put("/courses/{course_id}/settings/dependency-profile-visibility")

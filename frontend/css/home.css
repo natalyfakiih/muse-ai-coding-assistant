@@ -46,6 +46,9 @@ svg { display: block; }
   display: grid;
   grid-template-columns: 267px minmax(0, 1fr);
   min-height: 100%;
+  /* Paints the sidebar column the full page height, even on pages taller
+     than the screen (the sidebar itself is sticky and one screen tall). */
+  background: linear-gradient(90deg, var(--h-surface) 0 266px, var(--h-line) 266px 267px, transparent 267px);
 }
 
 /* ---------------- sidebar ---------------- */
@@ -335,7 +338,7 @@ svg { display: block; }
   .grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 860px) {
-  .shell { grid-template-columns: minmax(0, 1fr); }
+  .shell { grid-template-columns: minmax(0, 1fr); background: none; }
   .side { position: static; height: auto; padding: 20px 16px; border-right: 0; border-bottom: 1px solid var(--h-line); }
   .logo, .logo-tag { padding-left: 4px; margin-left: 0; }
   .logo-word { font-size: 36px; }
@@ -357,3 +360,52 @@ svg { display: block; }
 @media (prefers-reduced-motion: reduce) {
   .wave, .ollie { animation: none; }
 }
+
+/* Demo-only switch to the teacher's page, kept quiet at the bottom of the
+   sidebar so it doesn't read as a student feature. */
+.side { display: flex; flex-direction: column; }
+.side-switch {
+  margin-top: auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  font-size: 13.5px; font-weight: 700;
+  color: var(--h-ink-3);
+  border-radius: 10px;
+}
+.side-switch svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.side-switch:hover { color: var(--h-ink); background: #f3f6f3; }
+.side-switch:focus-visible { outline: 3px solid var(--h-green); outline-offset: 2px; }
+@media (max-width: 860px) { .side-switch { margin-top: 8px; padding: 10px 4px; } }
+
+/* Teacher-view switch: a tab tucked into the bottom-right edge of the page.
+   Only its label peeks out; on hover (or keyboard focus) it slides up to show
+   the whole button, and slides back down when the pointer leaves. */
+.side .side-switch {
+  position: fixed;
+  right: 32px;
+  bottom: 0;
+  z-index: 900;
+  margin: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  min-width: 210px;
+  padding: 10px 18px 22px;
+  background: #1f9d55;
+  color: #fff;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -4px 18px rgba(15, 58, 36, .18);
+  font-size: 14px; font-weight: 800;
+  text-decoration: none;
+  transform: translateY(calc(100% - 40px));
+  transition: transform .32s cubic-bezier(.2, .8, .2, 1), background .15s;
+}
+.side .side-switch:hover, .side .side-switch:focus-visible { transform: translateY(0); background: #1b8f4c; color: #fff; }
+.side .side-switch:focus-visible { outline: 3px solid #0f3a24; outline-offset: 2px; }
+.side .side-switch .ss-top { display: flex; align-items: center; gap: 9px; height: 20px; }
+.side .side-switch svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.side .side-switch .ss-more { font-size: 13px; font-weight: 600; opacity: .9; padding-left: 27px; }
+@media (max-width: 860px) { .side .side-switch { right: 16px; min-width: 0; } }
+@media (prefers-reduced-motion: reduce) { .side .side-switch { transition: none; } }
+
+/* The second line only appears once the tab has slid up. */
+.side .side-switch .ss-more { opacity: 0; transition: opacity .2s; }
+.side .side-switch:hover .ss-more, .side .side-switch:focus-visible .ss-more { opacity: .9; }

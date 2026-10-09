@@ -462,15 +462,19 @@ def tier_for(signals: list[dict]) -> tuple[str, int]:
 # The public calls
 # --------------------------------------------------------------------------
 def student_insights(db: Session, student_id: int, *, viewer: str = "student",
-                     class_norms: dict | None = None) -> dict:
+                     class_norms: dict | None = None,
+                     assignment_ids: set[int] | None = None) -> dict:
+    """`assignment_ids` limits everything to those exercises, which is how the
+    teacher dashboard shows one subject at a time. None means all of them."""
     student = db.get(Student, student_id)
     if student is None:
         raise LookupError("No such student.")
 
+    spec_query = select(Specification).where(Specification.student_id == student_id)
+    if assignment_ids is not None:
+        spec_query = spec_query.where(Specification.assignment_id.in_(assignment_ids or {-1}))
     specs = db.scalars(
-        select(Specification)
-        .where(Specification.student_id == student_id)
-        .order_by(Specification.assignment_id, Specification.version)
+        spec_query.order_by(Specification.assignment_id, Specification.version)
     ).all()
 
     by_assignment: dict[int, list[Specification]] = {}
@@ -494,7 +498,8 @@ def student_insights(db: Session, student_id: int, *, viewer: str = "student",
         for key, count in (rows[-1].gap_ask_counts or {}).items():
             gap_asks[key] = max(gap_asks[key], count)
 
-    norms = class_norms if class_norms is not None else class_norms_for(db, student.course_id)
+    norms = class_norms if class_norms is not None else class_norms_for(
+        db, student.course_id, assignment_ids)
     areas = _area_scores(diffs, interactions, timings, gap_asks)
 
     ranked = sorted(areas.items(), key=lambda kv: kv[1]["score"], reverse=True)
@@ -549,7 +554,8 @@ def _mean_of(rows: list[dict], key: str) -> int | None:
     return int(mean(values)) if values else None
 
 
-def class_norms_for(db: Session, course_id: str) -> dict:
+def class_norms_for(db: Session, course_id: str,
+                    assignment_ids: set[int] | None = None) -> dict:
     """Class-level averages, used both as chart baselines and as the comparison
     every signal is measured against."""
     students = db.scalars(select(Student).where(Student.course_id == course_id)).all()
@@ -557,8 +563,10 @@ def class_norms_for(db: Session, course_id: str) -> dict:
     difference_counts = []
 
     for student in students:
-        spec_ids = [s.id for s in db.scalars(
-            select(Specification).where(Specification.student_id == student.id)).all()]
+        spec_query = select(Specification).where(Specification.student_id == student.id)
+        if assignment_ids is not None:
+            spec_query = spec_query.where(Specification.assignment_id.in_(assignment_ids or {-1}))
+        spec_ids = [s.id for s in db.scalars(spec_query).all()]
         if not spec_ids:
             continue
         diffs = db.scalars(select(DiffResult)
@@ -604,16 +612,18 @@ def class_norms_for(db: Session, course_id: str) -> dict:
     }
 
 
-def class_insights(db: Session, course_id: str) -> dict:
+def class_insights(db: Session, course_id: str,
+                   assignment_ids: set[int] | None = None) -> dict:
     """The roster with a tier beside every name, plus the class distribution."""
-    norms = class_norms_for(db, course_id)
+    norms = class_norms_for(db, course_id, assignment_ids)
     students = db.scalars(
         select(Student).where(Student.course_id == course_id).order_by(Student.id)
     ).all()
 
     roster = []
     for student in students:
-        insight = student_insights(db, student.id, viewer="instructor", class_norms=norms)
+        insight = student_insights(db, student.id, viewer="instructor", class_norms=norms,
+                                   assignment_ids=assignment_ids)
         status = insight["status"]
         roster.append({
             "student_id": student.id,

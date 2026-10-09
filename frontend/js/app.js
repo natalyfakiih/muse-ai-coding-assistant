@@ -384,6 +384,17 @@ function ollieNote(mood, text) {
             <p class="ollie-line">${escapeHtml(text)}</p></div>`;
 }
 
+/** The My learning page ticks off notes the student has opened. Kept in this
+ *  browser only, like the rest of what this page remembers. */
+function markNoteRead(subjectId, noteId) {
+  try {
+    const key = `muse.read.${subjectId}`;
+    const read = new Set(JSON.parse(localStorage.getItem(key) || "[]"));
+    read.add(noteId);
+    localStorage.setItem(key, JSON.stringify([...read]));
+  } catch { /* private mode */ }
+}
+
 async function openNote(noteId) {
   const note = learn.notes.find((n) => n.id === noteId);
   if (!note) return;
@@ -391,6 +402,7 @@ async function openNote(noteId) {
   learn.current = note;
   learn.revealed = false;
   remember(`note.${state.subjectId}`, noteId);
+  markNoteRead(state.subjectId, noteId);
 
   document.querySelectorAll(".note-tab").forEach((tab) => {
     tab.classList.toggle("active", Number(tab.dataset.note) === noteId);
@@ -1182,7 +1194,7 @@ function initEditor() {
     require(["vs/editor/editor.main"], () => {
       clearTimeout(timeout);
       state.editor = monaco.editor.create($("editor"), {
-        value: "", language: "python", theme: "vs-dark",
+        value: "", language: "python", theme: "vs",
         fontSize: 13.5, minimap: { enabled: false }, automaticLayout: true,
         scrollBeyondLastLine: false, renderLineHighlight: "gutter",
 
@@ -1278,7 +1290,7 @@ function renderSubmission(result) {
     $("diffs").innerHTML =
       `<p class="tagline">Your code matches everything you specified. Nothing to explain.</p>`;
     $("finalize").disabled = false;
-    $("finalize-note").textContent = "No discrepancies — you can finalize.";
+    $("finalize-note").textContent = "Your code matches your plan. You can submit.";
     return;
   }
 
@@ -1370,14 +1382,14 @@ async function refreshStatus() {
   const status = await api(`/specifications/${state.specId}/submission-status`);
   $("finalize").disabled = !status.can_finalize;
   $("finalize-note").textContent = status.can_finalize
-    ? "All discrepancies explained — you can finalize."
-    : `${status.explanations_outstanding} explanation(s) still needed before this submission is accepted.`;
+    ? "Every difference is explained. You can submit."
+    : `${status.explanations_outstanding} more to explain before you can submit.`;
 }
 
 async function finalize() {
   try {
     const result = await api(`/specifications/${state.specId}/finalize`, { method: "POST" });
-    banner(`Submission accepted at ${new Date(result.finalized_at).toLocaleString()}.`, "ok");
+    banner(`Submitted at ${new Date(result.finalized_at).toLocaleString()}. Well done.`, "ok");
     $("finalize").disabled = true;
     state.finalized = true;
     showMeme("success", "Submission accepted.");
@@ -1675,12 +1687,12 @@ function view(name) {
   $("start").classList.toggle("hidden", name !== "start");
   $("mode").classList.toggle("hidden", name !== "mode");
   $("learn").classList.toggle("hidden", name !== "learn");
+  $("practice-intro").classList.toggle("hidden", name !== "intro");
 
   const practising = name === "practice";
   document.querySelector("nav.phases").classList.toggle("hidden", !practising);
   if (!practising) [1, 2, 3].forEach((n) => $(`phase-${n}`).classList.add("hidden"));
 
-  $("change-subject").classList.toggle("hidden", name === "start");
   $("change-mode").classList.toggle("hidden", name === "start" || name === "mode");
   // An empty exercise dropdown in the header reads as broken, so it only
   // appears while an exercise is actually being worked on.
@@ -1689,7 +1701,9 @@ function view(name) {
 }
 
 /** Show the picker; hide everything else. */
-function showStart() { view("start"); }
+/* Subjects are chosen on the My learning page now, so the old in-page
+   subject picker is never shown: anything that asked for it goes there. */
+function showStart() { location.href = "/learning"; }
 
 /* The subject is chosen, so now: read it, or do it. Both doors are described
    by what actually happens behind them, and a door with nothing behind it says
@@ -1755,8 +1769,69 @@ function chooseMode(mode) {
   return startPractice();
 }
 
-/** The three-phase flow, on this subject's first (or last-used) exercise. */
-async function startPractice() {
+/* A short briefing between "practise" and the coding page: which exercise,
+   how far the student already got with each, and what the three steps are.
+   Going straight into a locked editor with a rubric felt abrupt. */
+async function showPracticeIntro() {
+  const subject = state.subject || {};
+  const mine = (state.allAssignments || []).filter((a) => a.subject_id === state.subjectId);
+  if (!mine.length) {
+    banner(`${subject.name || "This subject"} has no exercises yet.`, "warn");
+    return showModeChoice();
+  }
+  remember(`mode.${state.subjectId}`, "practice");
+  view("intro");
+
+  const isMath = subject.checker === "math";
+  $("pi-ollie").innerHTML = ollieNote("cheering",
+    "Take a breath. You'll say what you plan to do, do it yourself, and I'll be right here the whole time.");
+  $("pi-h").textContent = `Ready to practise ${subject.name || "this subject"}?`;
+  $("pi-steps").innerHTML = [
+    ["Plan it", "Tell Ollie what you're going to do, in your own words. The next step unlocks once your plan covers everything."],
+    [isMath ? "Work it out" : "Build it", isMath
+      ? "Solve it yourself. Ask Ollie about the ideas and he'll answer; ask about your working and he'll ask back."
+      : "Write every line yourself. Ask Ollie about Python and he answers; ask about your code and he asks back."],
+    ["Check it", isMath
+      ? "Your answer is compared with your own plan, and you explain any difference."
+      : "Your code is run against your own plan, and you explain any difference in your own words."],
+  ].map(([t, d], i) => `<li class="pi-step"><span class="pi-n">${i + 1}</span>
+      <div><h3>${t}</h3><p>${escapeHtml(d)}</p></div></li>`).join("");
+
+  const last = Number(recall("assignmentId"));
+  const row = (a, i, st) => {
+    const label = { new: "Not started", plan: "Planning", code: "Plan done, coding" }[st] || "Not started";
+    const cta = st === "new" ? "Start" : "Continue";
+    const text = a.prompt_text.length > 150 ? `${a.prompt_text.slice(0, 150).trim()}…` : a.prompt_text;
+    return `<li class="pi-ex${a.id === last ? " is-last" : ""}">
+        <span class="pi-ex-n">${i + 1}</span>
+        <p class="pi-ex-t">${escapeHtml(text)}</p>
+        <span class="pi-status st-${st}">${label}</span>
+        <button type="button" class="primary pi-go" data-go="${a.id}">${cta} →</button>
+      </li>`;
+  };
+  $("pi-list").innerHTML = mine.map((a, i) => row(a, i, "new")).join("");
+  const bind = () => $("pi-list").querySelectorAll("[data-go]").forEach((b) =>
+    b.addEventListener("click", () => {
+      remember("assignmentId", Number(b.dataset.go));
+      startPractice({ direct: true });
+    }));
+  bind();
+
+  // How far this student got with each one. Best-effort: if it fails the list
+  // simply says "Not started".
+  const states = await Promise.all(mine.map((a) =>
+    api(`/assignments/${a.id}/specification?student_id=${state.studentId}`)
+      .then((s) => (!s || !s.specification_id) ? "new" : s.locked ? "code" : "plan")
+      .catch(() => "new")));
+  if (state.view !== "intro") return;
+  $("pi-list").innerHTML = mine.map((a, i) => row(a, i, states[i])).join("");
+  bind();
+}
+
+/** The three-phase flow, on this subject's first (or last-used) exercise.
+ *  Shows the briefing first unless called with {direct: true}. */
+async function startPractice(opts = {}) {
+  if (!opts.direct) return showPracticeIntro();
   const mine = (state.allAssignments || [])
     .filter((a) => a.subject_id === state.subjectId);
   if (!mine.length) {
@@ -1793,7 +1868,7 @@ async function chooseSubject(subjectId, opts = {}) {
   // subject always shows the choice rather than guessing which one was meant.
   const remembered = opts.restore ? recall(`mode.${subjectId}`) : null;
   if (remembered === "learn" && subject.materials) return openLearn();
-  if (remembered === "practice" && mine.length) return startPractice();
+  if (remembered === "practice" && mine.length) return startPractice({ direct: !opts.intro });
   showModeChoice();
 }
 
@@ -1823,6 +1898,20 @@ async function boot() {
 
   initEditor();
   renderStart(subjects, assignments);
+
+  // Arriving from a card on My learning: open that subject straight into its
+  // notes or its exercises, then drop the query so a reload behaves normally.
+  const params = new URLSearchParams(location.search);
+  const wanted = Number(params.get("subject"));
+  if (subjects.some((sub) => sub.id === wanted)) {
+    const mode = params.get("mode");
+    const note = Number(params.get("note"));
+    if (mode === "learn" || mode === "practice") remember(`mode.${wanted}`, mode);
+    if (note) remember(`note.${wanted}`, note);
+    history.replaceState(null, "", location.pathname);
+    await chooseSubject(wanted, { restore: mode === "learn" || mode === "practice", intro: true });
+    return;
+  }
 
   // Come back to where you were — a reload mid-demo shouldn't cost you your
   // place — but a first visit starts at the picker rather than dropping you
@@ -1898,9 +1987,21 @@ $("learn-question").addEventListener("keydown", (event) => {
 });
 
 $("subject").addEventListener("change", (e) => chooseSubject(Number(e.target.value)));
-$("change-subject").addEventListener("click", showStart);
 $("change-mode").addEventListener("click", showModeChoice);
 $("mode-back").addEventListener("click", showStart);
+$("pi-back").addEventListener("click", showModeChoice);
+
+/* Reflection: the four "session in detail" panels share one tab strip. */
+document.querySelectorAll(".rm-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".rm-tab").forEach((t) => {
+      const on = t === tab;
+      t.classList.toggle("active", on);
+      t.setAttribute("aria-selected", on ? "true" : "false");
+      $(t.dataset.tab).hidden = !on;
+    });
+  });
+});
 $("note-toggle").addEventListener("click", toggleNote);
 $("learn-to-practice").addEventListener("click", () => startPractice());
 

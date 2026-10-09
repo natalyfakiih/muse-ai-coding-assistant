@@ -60,9 +60,16 @@ class AssignmentCreate(BaseModel):
     prompt_text: str = Field(min_length=1, max_length=4000)
     # The function name the student's code must define — the Reflection
     # Engine's behavioral diff calls this by name.
-    entry_point: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=80)
+    # Required for Python exercises, unused for maths ones (checked in the API,
+    # because which one applies depends on the subject).
+    entry_point: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$", max_length=80)
     starter_code: str | None = Field(default=None, max_length=20_000)
     items: list[RubricItemIn] = Field(min_length=1, max_length=20)
+    # Which subject the exercise sits under on the student's My learning page.
+    subject_id: int | None = None
+    # Maths subjects: the answer phase 3 compares against, and how close counts.
+    expected_answer: str | None = Field(default=None, max_length=200)
+    tolerance: float | None = Field(default=None, ge=0, le=1)
 
 
 class CourseCreate(BaseModel):
