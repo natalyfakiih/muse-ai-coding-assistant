@@ -64,6 +64,59 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>
       </span>
     </button>
+
+    <details class="card" id="subjects-card">
+      <summary>
+        <span class="card-icon tone-accent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M8 7h7M8 11h7"/></svg>
+        </span>
+        <span class="card-title">Subjects &amp; material</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body">
+        <div id="subject-list" class="subject-list"></div>
+
+        <form id="subject-form" class="stack-form">
+          <label class="field-label" for="new-subject-name">New subject</label>
+          <input id="new-subject-name" type="text" placeholder="Mechanics" required>
+          <label class="field-label" for="new-subject-checker">Marked by</label>
+          <select id="new-subject-checker"></select>
+          <p class="tagline" id="checker-note"></p>
+          <input id="new-subject-desc" type="text" placeholder="One line about it (optional)">
+          <button type="submit" class="ghost-btn">Add subject</button>
+          <span class="tagline" id="subject-form-status"></span>
+        </form>
+
+        <div id="material-panel" class="hidden">
+          <h4 class="material-head">Material for <b id="material-subject"></b></h4>
+          <p class="tagline">Ollie explains out of these notes and nothing else.
+             If a question isn't covered here, he says so instead of guessing.</p>
+          <div id="material-list" class="material-list"></div>
+          <form id="material-form" class="stack-form">
+            <input id="new-material-title" type="text" placeholder="Section title">
+            <textarea id="new-material-body" rows="5"
+              placeholder="Paste or write the notes. Blank lines separate paragraphs, and Ollie retrieves a paragraph at a time."></textarea>
+            <button type="submit" class="ghost-btn">Add material</button>
+            <span class="tagline" id="material-form-status"></span>
+          </form>
+
+          <div class="try-ollie">
+            <h4 class="material-head">Try it as a student would</h4>
+            <p class="tagline">Ask what your students will ask. If your notes don't
+               cover it, Ollie says so rather than filling the gap himself — so
+               this is also how you find out what's missing.</p>
+            <div id="try-answer" class="try-answer"></div>
+            <form id="try-form" class="stack-form">
+              <input id="try-question" type="text"
+                     placeholder="e.g. which equation do I use when there's no time given?">
+              <button type="submit" class="ghost-btn">Ask Ollie</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </details>
   </div>
 
   <div class="dash-col dash-col-main">

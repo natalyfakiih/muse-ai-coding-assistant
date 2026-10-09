@@ -273,6 +273,463 @@ function ollieForPhase(number) {
   }
 }
 
+/* ------------------------------------------------- Ollie on the material */
+/* The honest part of this panel is the "not covered" branch. The server
+   decides that in Python before any model runs, so when Ollie says a topic
+   isn't in the notes, that is a fact about the notes — not a model being
+   modest. The student can trust it, and so can their instructor. */
+
+function showExplainCard(assignment) {
+  const card = $("explain-card");
+  if (!card) return;
+  const has = Boolean(assignment && assignment.subject_id);
+  card.classList.toggle("hidden", !has);
+  if (!has) return;
+  state.subjectId = assignment.subject_id;
+  $("explain-subject").textContent = assignment.subject_name || "the subject";
+}
+
+async function askOllieToExplain(inputId = "explain-input", outId = "explain-answer") {
+  const input = $(inputId);
+  const question = input.value.trim();
+  if (!question || !state.subjectId) return;
+  const out = $(outId);
+  input.value = "";
+  out.innerHTML = OLLIE.avatar("thinking", { size: 30 }) +
+    `<div class="explain-body"><p class="explain-text">Looking through the notes…</p></div>`;
+
+  try {
+    const result = await api(`/subjects/${state.subjectId}/explain`, {
+      method: "POST", body: JSON.stringify({ question }),
+    });
+    const excerpts = (result.excerpts || []).map((e) =>
+      `<li>${escapeHtml(typeof e === "string" ? e : (e.title || e.body || ""))}</li>`).join("");
+    out.innerHTML = OLLIE.avatar(result.covered ? "asking" : "gentle", { size: 30 }) +
+      `<div class="explain-body">
+         <p class="explain-text">${escapeHtml(result.answer)}</p>
+         ${excerpts ? `<p class="explain-from">from your notes:</p>
+                       <ul class="explain-cites">${excerpts}</ul>` : ""}
+       </div>`;
+  } catch (error) {
+    out.innerHTML = `<p class="tagline">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+/* ------------------------------------------------------------ Learn mode */
+/* Reading notes feels like learning and largely isn't: having just read
+   something fluently, you cannot tell recognising it from being able to
+   produce it. The two things that reliably move material into memory are
+   elaboration — tying a new idea to something concrete — and retrieval, being
+   made to produce the answer before you see it. So the lesson is shaped around
+   both: one idea, a few steps, an analogy for the mechanism, and a question
+   answered with the note hidden.
+
+   The note's own text sits beside it the whole time. The lesson is a way in,
+   not a replacement, and a student revising for an exam needs the real thing. */
+
+const learn = { notes: [], current: null, lesson: null, revealed: false };
+
+function learnReadingTime(words) {
+  // 200 wpm, rounded up, floored at one minute. Honest enough to decide with.
+  return Math.max(1, Math.ceil((words || 0) / 200));
+}
+
+async function openLearn() {
+  view("learn");
+  $("learn-h").textContent = state.subject ? state.subject.name : "Your notes";
+  renderVoiceControls();
+  if (window.SPEECH && SPEECH.supported()) {
+    $("voice-rate").value = String(SPEECH.rate);
+  }
+  const tabs = $("note-tabs");
+  tabs.innerHTML = `<p class="tagline" style="margin:0">Loading your notes…</p>`;
+
+  try {
+    learn.notes = await api(`/subjects/${state.subjectId}/materials`);
+  } catch (error) {
+    tabs.innerHTML = `<p class="tagline">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
+  if (!learn.notes.length) {
+    tabs.innerHTML = "";
+    $("note-body").innerHTML =
+      `<p class="tagline">Your instructor hasn't added any notes for
+        ${escapeHtml(state.subject ? state.subject.name : "this subject")} yet.</p>`;
+    $("lesson").innerHTML = ollieNote("gentle",
+      "Nothing to teach from yet. Once your instructor writes the material in, " +
+      "this is where I'll go through it with you.");
+    return;
+  }
+
+  tabs.innerHTML = learn.notes.map((note, index) => `
+    <button type="button" class="note-tab" data-note="${note.id}">
+      <span class="nt-n">${index + 1}</span>
+      <span class="nt-t">${escapeHtml(note.title)}</span>
+      <span class="nt-m">${learnReadingTime(note.words)} min read</span>
+    </button>`).join("");
+  tabs.querySelectorAll("[data-note]").forEach((button) => {
+    button.addEventListener("click", () => openNote(Number(button.dataset.note)));
+  });
+
+  const last = Number(recall(`note.${state.subjectId}`));
+  const pick = learn.notes.some((n) => n.id === last) ? last : learn.notes[0].id;
+  await openNote(pick);
+}
+
+/** One line from Ollie, used where a whole lesson would be too much. */
+function ollieNote(mood, text) {
+  if (!window.OLLIE) return `<p class="tagline">${escapeHtml(text)}</p>`;
+  return `<div class="ollie-says">${OLLIE.avatar(mood, { size: 38 })}
+            <p class="ollie-line">${escapeHtml(text)}</p></div>`;
+}
+
+async function openNote(noteId) {
+  const note = learn.notes.find((n) => n.id === noteId);
+  if (!note) return;
+  stopSpeaking();           // a new note must not be read over the old one
+  learn.current = note;
+  learn.revealed = false;
+  remember(`note.${state.subjectId}`, noteId);
+
+  document.querySelectorAll(".note-tab").forEach((tab) => {
+    tab.classList.toggle("active", Number(tab.dataset.note) === noteId);
+  });
+
+  renderNoteBody(note);
+  $("lesson").innerHTML = window.OLLIE
+    ? `<div class="lesson-wait">${OLLIE.avatar("thinking", { size: 44 })}
+         <p class="ollie-line">Reading <b>${escapeHtml(note.title)}</b> and working
+            out how to explain it…</p></div>`
+    : `<p class="tagline">Working…</p>`;
+  $("learn-answer").innerHTML = "";
+
+  try {
+    learn.lesson = await api(
+      `/subjects/${state.subjectId}/materials/${noteId}/teach`, { method: "POST" });
+    renderLesson(learn.lesson);
+  } catch (error) {
+    $("lesson").innerHTML = `<p class="tagline">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+/* The note, paragraph by paragraph, with numbers — the lesson cites them, so
+   "from paragraph 2" has to be something the student can actually find. */
+function renderNoteBody(note) {
+  const paragraphs = String(note.body || "").split(/\n\s*\n/)
+    .map((p) => p.trim()).filter(Boolean);
+  $("note-body").innerHTML = `
+    <h3 class="note-title">${escapeHtml(note.title)}</h3>
+    <div class="note-text">${paragraphs.map((p, i) =>
+      `<p id="para-${i}" class="${looksPreformatted(p) ? "is-pre" : ""}">
+         <span class="para-n">${i + 1}</span>${escapeHtml(p)}</p>`
+    ).join("")}</div>`;
+}
+
+function renderLesson(lesson) {
+  const host = $("lesson");
+
+  if (!lesson.taught) {
+    host.innerHTML = ollieNote("gentle", lesson.idea);
+    $("lesson-source").textContent = "nothing to teach from yet";
+    return;
+  }
+
+  $("lesson-source").textContent = lesson.dropped
+    ? `${lesson.points.length} point${lesson.points.length === 1 ? "" : "s"}, all traced to the note`
+    : "from your instructor's notes";
+
+  const steps = lesson.points.map((point, index) => `
+    <li class="lesson-step" id="seg-step-${index}">
+      <span class="ls-n">${index + 1}</span>
+      <div class="ls-body">
+        <h4>${escapeHtml(point.title)}</h4>
+        <p>${escapeHtml(point.body)}</p>
+        <div class="ls-tools">
+          ${point.paragraph != null
+            ? `<button class="ls-from" type="button" data-para="${point.paragraph}">
+                 paragraph ${point.paragraph + 1} of the note</button>`
+            : ""}
+          <button class="ls-say speak-btn hidden" type="button" data-say="${index}"
+                  title="Hear this step on its own">▶ hear this step</button>
+        </div>
+      </div>
+    </li>`).join("");
+
+  host.innerHTML = `
+    ${lesson.hook ? `<p class="lesson-hook" id="seg-hook">${escapeHtml(lesson.hook)}</p>` : ""}
+
+    <div class="lesson-idea" id="seg-idea">
+      ${window.OLLIE ? OLLIE.avatar("asking", { size: 40 }) : ""}
+      <div>
+        <span class="li-label">The one thing to take away</span>
+        <p class="li-text">${escapeHtml(lesson.idea)}</p>
+      </div>
+    </div>
+
+    <ol class="lesson-steps">${steps}</ol>
+
+    ${lesson.example ? `
+      <div class="lesson-worked${looksPreformatted(lesson.example) ? " is-pre" : ""}" id="seg-worked">
+        <span class="lw-label">Worked through</span>
+        <p>${escapeHtml(lesson.example)}</p>
+      </div>` : ""}
+
+    ${lesson.memory_hook ? `
+      <div class="lesson-hook-box" id="seg-memory">
+        <span class="lh-label">Ollie's way of remembering it</span>
+        <p>${escapeHtml(lesson.memory_hook)}</p>
+        <span class="lh-caveat">My analogy, not your instructor's — it's there to
+          hold the idea in place, so check the note for the exact wording.</span>
+      </div>` : ""}
+
+    ${lesson.check ? `
+      <div class="lesson-check" id="seg-check">
+        <span class="lc-label">Before you move on</span>
+        <p class="lc-q">${escapeHtml(lesson.check.question)}</p>
+        <textarea id="check-answer" rows="2"
+          placeholder="Answer from memory — don't look at the note yet…"></textarea>
+        <div class="lc-actions">
+          <button class="primary" id="check-reveal" type="button">
+            Show me what the note says</button>
+          <span class="tagline" id="check-nudge">Even a wrong guess makes it
+            stick better than reading the answer. Nothing here is marked or
+            recorded.</span>
+        </div>
+        <div id="check-result"></div>
+      </div>` : ""}
+
+    <div class="lesson-next">
+      <button class="primary" type="button" id="lesson-practice">
+        Practise this subject →</button>
+      ${nextNoteButton()}
+    </div>`;
+
+  host.querySelectorAll("[data-para]").forEach((button) => {
+    button.addEventListener("click", () => highlightParagraph(Number(button.dataset.para)));
+  });
+  host.querySelectorAll("[data-say]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.say);
+      const point = lesson.points[index];
+      if (!point) return;
+      speakToggle(`step-${index}`,
+        [{ id: `seg-step-${index}`, text: `${point.title}. ${point.body}` }]);
+    });
+  });
+  renderVoiceControls();
+
+  const reveal = $("check-reveal");
+  if (reveal) reveal.addEventListener("click", revealCheck);
+  const practice = $("lesson-practice");
+  if (practice) practice.addEventListener("click", () => startPractice());
+  const next = $("lesson-next-note");
+  if (next) next.addEventListener("click", () => openNote(Number(next.dataset.next)));
+}
+
+/* ------------------------------------------------- Ollie reading it out */
+/* Two separate things: the lesson, and the instructor's note. Each is read as
+   a list of blocks rather than one wall of text, so the page can light up
+   whichever block is being spoken — which is most of the value. Hearing a
+   lesson without seeing where you are in it is worse than reading it. */
+
+function lessonSegments(lesson) {
+  if (!lesson || !lesson.taught) return [];
+  const out = [];
+  if (lesson.hook) out.push({ id: "seg-hook", text: lesson.hook });
+  out.push({ id: "seg-idea", text: `The one thing to take away. ${lesson.idea}` });
+  lesson.points.forEach((point, i) => {
+    out.push({ id: `seg-step-${i}`, text: `${point.title}. ${point.body}` });
+  });
+  if (lesson.example) {
+    out.push({ id: "seg-worked", text: `Worked through. ${lesson.example}`,
+               formula: looksPreformatted(lesson.example) });
+  }
+  if (lesson.memory_hook) {
+    out.push({ id: "seg-memory", text: `My way of remembering it. ${lesson.memory_hook}` });
+  }
+  if (lesson.check) {
+    // The answer is deliberately not read. Speaking it aloud straight after the
+    // question would undo the one thing the question is for.
+    out.push({ id: "seg-check", text: `Before you move on. ${lesson.check.question}` });
+  }
+  return out;
+}
+
+function noteSegments(note) {
+  return String((note || {}).body || "").split(/\n\s*\n/)
+    .map((p, i) => ({ id: `para-${i}`, text: p.trim(), formula: looksPreformatted(p) }))
+    .filter((s) => s.text);
+}
+
+/* The spoken block gets a marker, and the page scrolls to keep it in view —
+   but only when it has drifted off screen, because scrolling under someone who
+   is reading ahead is its own kind of rude. */
+function markSpeaking(id) {
+  document.querySelectorAll(".is-speaking").forEach((el) => el.classList.remove("is-speaking"));
+  if (!id) return;
+  const element = $(id);
+  if (!element) return;
+  element.classList.add("is-speaking");
+  const box = element.getBoundingClientRect();
+  if (box.top < 70 || box.bottom > window.innerHeight - 40) {
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function renderVoiceControls() {
+  const bar = $("voice-bar");
+  if (!bar) return;
+  if (!window.SPEECH || !SPEECH.supported()) {
+    // Hidden rather than shown broken. Saying "your browser can't do this" to
+    // someone who never asked for it is noise.
+    bar.classList.add("hidden");
+    return;
+  }
+  bar.classList.remove("hidden");
+
+  const status = SPEECH.status();
+  const toggle = $("voice-toggle");
+  toggle.setAttribute("aria-pressed", String(status.on));
+  toggle.classList.toggle("is-on", status.on);
+  toggle.querySelector(".vt-label").textContent =
+    `Read aloud: ${status.on ? "on" : "off"}`;
+  $("voice-rate-wrap").classList.toggle("hidden", !status.on);
+
+  // Every play button on the page, including the per-step ones that only exist
+  // once a lesson has rendered. The one currently reading becomes its own
+  // pause button, so there is never a second control to hunt for.
+  const LABELS = { "speak-lesson": "Read it to me", "speak-note": "Read" };
+  document.querySelectorAll(".speak-btn").forEach((button) => {
+    button.classList.toggle("hidden", !status.on);
+    const key = button.dataset.say != null ? `step-${button.dataset.say}` : button.id;
+    const label = LABELS[key] || "hear this step";
+    if (speech.reading === key && status.speaking) {
+      button.textContent = status.paused ? "▶ Resume" : "❚❚ Pause";
+      button.classList.add("is-live");
+    } else {
+      button.textContent = `▶ ${label}`;
+      button.classList.remove("is-live");
+    }
+  });
+}
+
+const speech = { reading: null };
+
+function speechHandlers(buttonId) {
+  return {
+    onSegment: markSpeaking,
+    onState: (status) => {
+      if (!status.speaking) {
+        if (speech.reading === buttonId) speech.reading = null;
+        markSpeaking(null);
+      }
+      renderVoiceControls();
+    },
+  };
+}
+
+/** One button that starts, pauses and resumes the thing it belongs to. */
+function speakToggle(buttonId, segments) {
+  if (!window.SPEECH || !SPEECH.supported() || !SPEECH.enabled) return;
+  const status = SPEECH.status();
+
+  if (speech.reading === buttonId && status.speaking) {
+    if (status.paused) SPEECH.resume(); else SPEECH.pause();
+    renderVoiceControls();
+    return;
+  }
+
+  speech.reading = buttonId;
+  const started = SPEECH.speak(segments, speechHandlers(buttonId));
+  if (!started) speech.reading = null;
+  renderVoiceControls();
+}
+
+/** Anything that changes what is on screen also stops the voice. */
+function stopSpeaking() {
+  if (!window.SPEECH || !SPEECH.supported()) return;
+  speech.reading = null;
+  SPEECH.stop();
+  markSpeaking(null);
+  renderVoiceControls();
+}
+
+/* Algebra and code get a monospace block, laid out as written; a worked
+   example in prose does not. Counting sentences was not enough — a sentence
+   saying "accelerates at g = 9.81 m/s^2" is prose with an equals sign in it,
+   and it came out set in monospace. So the test is structural: either every
+   line is a relation and none is a sentence, or the block is indented code. */
+function looksPreformatted(text) {
+  const raw = String(text || "");
+  const lines = raw.split("\n").filter((l) => l.trim());
+  if (!lines.length) return false;
+
+  const indented = lines.filter((l) => /^(\s{4,}|\t)/.test(l)).length;
+  if (/\bdef\s+\w+\(/.test(raw) || indented >= Math.max(1, Math.floor(lines.length / 2))) {
+    return true;
+  }
+
+  const t = raw.trim();
+  if (!/[=<>≤≥]/.test(t)) return false;
+  const allRelations = lines.every((l) => /[=<>≤≥]/.test(l) && !/[.!?]/.test(l));
+  return allRelations && (lines.length > 1 || t.length <= 80);
+}
+
+function nextNoteButton() {
+  const index = learn.notes.findIndex((n) => n.id === (learn.current || {}).id);
+  const next = learn.notes[index + 1];
+  if (!next) return "";
+  return `<button class="ghost" type="button" id="lesson-next-note"
+                  data-next="${next.id}">Next note: ${escapeHtml(next.title)} →</button>`;
+}
+
+/* Clicking a citation scrolls the note to that paragraph and flashes it. The
+   point is that every taught claim is checkable in one click. */
+function highlightParagraph(index) {
+  const target = $(`para-${index}`);
+  if (!target) return;
+  if ($("note-body").closest(".card").classList.contains("note-hidden")) toggleNote();
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.classList.remove("flash");
+  void target.offsetWidth;          // restart the animation if it is mid-flight
+  target.classList.add("flash");
+}
+
+function revealCheck() {
+  if (learn.revealed) return;
+  learn.revealed = true;
+  const mine = ($("check-answer").value || "").trim();
+  const answer = (learn.lesson.check || {}).answer || "";
+
+  // Their answer is shown beside the note's so they compare rather than just
+  // read. It is deliberately not graded: a word-overlap score on a free-text
+  // answer would be wrong often enough to be worse than nothing, and a wrong
+  // "incorrect" from Ollie here would cost more than it bought.
+  $("check-result").innerHTML = `
+    ${mine ? `<div class="lc-mine">
+                <span class="lc-sub">What you said</span>
+                <p>${escapeHtml(mine)}</p>
+              </div>` : ""}
+    <div class="lc-theirs">
+      <span class="lc-sub">What the note says</span>
+      <p>${escapeHtml(answer)}</p>
+    </div>
+    <p class="lc-close">${escapeHtml(mine
+      ? "Compare them yourself — if yours is close, you've got it. If it isn't, "
+        + "read that paragraph again before you move on."
+      : "Have a go at saying it out loud now, with the answer covered. That's "
+        + "the bit that does the work.")}</p>`;
+  $("check-reveal").disabled = true;
+  $("check-nudge").textContent = "";
+}
+
+function toggleNote() {
+  const card = $("note-body").closest(".card");
+  const hidden = card.classList.toggle("note-hidden");
+  $("note-toggle").textContent = hidden ? "Show" : "Hide";
+}
+
 function bubble(container, role, text, meta, mood) {
   const element = document.createElement("div");
   element.className = `msg ${role}`;
@@ -448,6 +905,7 @@ async function loadSpecification() {
   state.maxPhase = 1;
 
   $("assignment-prompt").textContent = data.assignment.prompt_text;
+  showExplainCard(data.assignment);
   $("spec-version").textContent = data.version ? `version ${data.version}` : "";
   $("gate-status").innerHTML = data.locked
     ? '<span class="tag locked">locked</span>' : "draft";
@@ -1166,31 +1624,215 @@ async function checkProviders() {
   } catch { /* health is advisory */ }
 }
 
+/* --------------------------------------------------------- the first page */
+/* Every assignment used to sit in one flat dropdown, so a maths exercise and
+   a Python one looked like the same kind of thing. Choosing the subject first
+   is also the honest order: the subject is what decides how the work gets
+   marked, so it belongs before the exercise, not after it. */
+
+function renderStart(subjects, assignments) {
+  const intro = $("start-intro");
+  if (intro && window.OLLIE) {
+    intro.innerHTML = OLLIE.avatar("asking", { size: 52 }) +
+      `<p class="t"><b>Hi, I'm Ollie.</b> I won't do the work for you, and I
+       won't hand you answers. I'll ask until you know what you're building,
+       then stay with you while you build it.</p>`;
+  }
+
+  const counts = {};
+  assignments.forEach((a) => {
+    counts[a.subject_id] = (counts[a.subject_id] || 0) + 1;
+  });
+
+  $("subject-grid").innerHTML = subjects.map((sub) => `
+    <button type="button" class="subject-card" data-pick="${sub.id}">
+      <span class="sc-top">
+        <h3>${escapeHtml(sub.name)}</h3>
+        <span class="ck">${escapeHtml(sub.checker)}</span>
+      </span>
+      ${sub.description ? `<p class="sc-desc">${escapeHtml(sub.description)}</p>` : ""}
+      <span class="sc-meta">
+        <span>${counts[sub.id] || 0} exercise${(counts[sub.id] || 0) === 1 ? "" : "s"}</span>
+        <span>${sub.materials} note${sub.materials === 1 ? "" : "s"}</span>
+      </span>
+      <p class="sc-how">${escapeHtml(sub.checker_description || "")}</p>
+    </button>`).join("");
+
+  document.querySelectorAll("[data-pick]").forEach((b) => {
+    b.addEventListener("click", () => chooseSubject(Number(b.dataset.pick)));
+  });
+}
+
+/* One function owns which of the four pages is on screen — picker, the
+   learn-or-practise choice, the lesson, and the three-phase exercise flow.
+   Toggling sections from four different places is how you end up with two
+   pages visible at once, or a dashboard rendering inside a hidden parent. */
+function view(name) {
+  // Leaving the page silences it. Ollie reading a lesson the student has
+  // walked away from is the single most annoying thing this feature could do.
+  if (state.view !== name) stopSpeaking();
+  state.view = name;
+  $("start").classList.toggle("hidden", name !== "start");
+  $("mode").classList.toggle("hidden", name !== "mode");
+  $("learn").classList.toggle("hidden", name !== "learn");
+
+  const practising = name === "practice";
+  document.querySelector("nav.phases").classList.toggle("hidden", !practising);
+  if (!practising) [1, 2, 3].forEach((n) => $(`phase-${n}`).classList.add("hidden"));
+
+  $("change-subject").classList.toggle("hidden", name === "start");
+  $("change-mode").classList.toggle("hidden", name === "start" || name === "mode");
+  // An empty exercise dropdown in the header reads as broken, so it only
+  // appears while an exercise is actually being worked on.
+  document.querySelectorAll(".needs-subject").forEach((el) =>
+    el.classList.toggle("hidden", !practising));
+}
+
+/** Show the picker; hide everything else. */
+function showStart() { view("start"); }
+
+/* The subject is chosen, so now: read it, or do it. Both doors are described
+   by what actually happens behind them, and a door with nothing behind it says
+   so rather than opening onto an empty page. */
+function showModeChoice() {
+  const subject = state.subject || {};
+  const exercises = (state.allAssignments || [])
+    .filter((a) => a.subject_id === subject.id).length;
+  const notes = subject.materials || 0;
+
+  const intro = $("mode-intro");
+  if (intro && window.OLLIE) {
+    intro.innerHTML = OLLIE.avatar("asking", { size: 48 }) +
+      `<p class="t">You picked <b>${escapeHtml(subject.name || "a subject")}</b>.
+        Want me to take you through the material first, or go straight to the
+        exercises?</p>`;
+  }
+  $("mode-h").textContent = subject.name || "What now?";
+
+  const cards = [
+    {
+      mode: "learn", title: "Learn the material", count: notes,
+      unit: "note", icon: "notes",
+      desc: "I take one note at a time, give you the one idea it is really "
+          + "about, walk through it in steps, and leave you with a question to "
+          + "answer from memory.",
+      how: "Nothing here is marked or recorded. Everything I say comes out of "
+         + "your instructor's own notes, with the paragraph it came from one "
+         + "click away.",
+      blocked: notes ? null : "Your instructor hasn't added any notes for this subject yet.",
+    },
+    {
+      mode: "practice", title: "Practise", count: exercises,
+      unit: "exercise", icon: "editor",
+      desc: "Say what you're going to build before the editor unlocks, build it "
+          + "yourself, then see exactly where your code and your own plan "
+          + "disagree.",
+      how: subject.checker_description || "",
+      blocked: exercises ? null : "This subject has no exercises yet.",
+    },
+  ];
+
+  $("mode-grid").innerHTML = cards.map((card) => `
+    <button type="button" class="subject-card mode-card${card.blocked ? " is-blocked" : ""}"
+            data-mode="${card.mode}"${card.blocked ? " disabled" : ""}>
+      <span class="sc-top">
+        <h3>${escapeHtml(card.title)}</h3>
+        <span class="ck">${card.count} ${card.unit}${card.count === 1 ? "" : "s"}</span>
+      </span>
+      <p class="sc-desc">${escapeHtml(card.desc)}</p>
+      <p class="sc-how">${escapeHtml(card.blocked || card.how)}</p>
+    </button>`).join("");
+
+  $("mode-grid").querySelectorAll("[data-mode]").forEach((button) => {
+    button.addEventListener("click", () => chooseMode(button.dataset.mode));
+  });
+  view("mode");
+}
+
+function chooseMode(mode) {
+  remember(`mode.${state.subjectId}`, mode);
+  if (mode === "learn") return openLearn();
+  return startPractice();
+}
+
+/** The three-phase flow, on this subject's first (or last-used) exercise. */
+async function startPractice() {
+  const mine = (state.allAssignments || [])
+    .filter((a) => a.subject_id === state.subjectId);
+  if (!mine.length) {
+    banner(`${(state.subject || {}).name || "This subject"} has no exercises yet.`, "warn");
+    return showModeChoice();
+  }
+  remember(`mode.${state.subjectId}`, "practice");
+
+  const last = Number(recall("assignmentId"));
+  state.assignmentId = mine.some((a) => a.id === last) ? last : mine[0].id;
+  $("assignment").value = String(state.assignmentId);
+
+  view("practice");
+  state.maxPhase = 1;
+  phase(1);
+  await loadSpecification();
+}
+
+async function chooseSubject(subjectId, opts = {}) {
+  const subject = (state.subjects || []).find((s) => s.id === subjectId);
+  if (!subject) return;
+  state.subject = subject;
+  state.subjectId = subjectId;
+  remember("subjectId", subjectId);
+  banner("");
+
+  // Only this subject's exercises, numbered from 1 within it.
+  const mine = (state.allAssignments || []).filter((a) => a.subject_id === subjectId);
+  $("assignment").innerHTML = mine.map((a, i) =>
+    `<option value="${a.id}">${i + 1}. ${escapeHtml(a.prompt_text.slice(0, 46))}…</option>`).join("");
+  $("subject").value = String(subjectId);
+
+  // A reload mid-demo shouldn't cost you your place, but a first visit to a
+  // subject always shows the choice rather than guessing which one was meant.
+  const remembered = opts.restore ? recall(`mode.${subjectId}`) : null;
+  if (remembered === "learn" && subject.materials) return openLearn();
+  if (remembered === "practice" && mine.length) return startPractice();
+  showModeChoice();
+}
+
 async function boot() {
   await checkProviders();
   await loadMemes();
   const [students, assignments] = await Promise.all([
     api("/students"), api("/assignments"),
   ]);
+  state.allAssignments = assignments;
   if (!students.length || !assignments.length) {
     banner("No data yet — run  python -m app.seed  to create a course.", "warn");
     return;
   }
   $("student").innerHTML = students.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
-  $("assignment").innerHTML = assignments.map((a, i) =>
-    `<option value="${a.id}">${i + 1}. ${escapeHtml(a.prompt_text.slice(0, 46))}…</option>`).join("");
 
-  // Come back to the student and assignment you were last on, not always the
-  // first one — a reload mid-demo shouldn't throw away where you were.
   const lastStudent = Number(recall("studentId"));
-  const lastAssignment = Number(recall("assignmentId"));
   state.studentId = students.some((s) => s.id === lastStudent) ? lastStudent : students[0].id;
-  state.assignmentId = assignments.some((a) => a.id === lastAssignment)
-    ? lastAssignment : assignments[0].id;
   $("student").value = String(state.studentId);
-  $("assignment").value = String(state.assignmentId);
+
+  // Subjects come from the course the assignments belong to.
+  const courseId = assignments[0].course_id;
+  const subjects = await api(`/courses/${courseId}/subjects`);
+  state.subjects = subjects;
+  $("subject").innerHTML = subjects.map((sub) =>
+    `<option value="${sub.id}">${escapeHtml(sub.name)}</option>`).join("");
+
   initEditor();
-  await loadSpecification();
+  renderStart(subjects, assignments);
+
+  // Come back to where you were — a reload mid-demo shouldn't cost you your
+  // place — but a first visit starts at the picker rather than dropping you
+  // into an exercise you never chose.
+  const lastSubject = Number(recall("subjectId"));
+  if (subjects.some((sub) => sub.id === lastSubject)) {
+    await chooseSubject(lastSubject, { restore: true });
+  } else {
+    showStart();
+  }
 }
 
 $("student").addEventListener("change", (e) => {
@@ -1232,3 +1874,55 @@ document.querySelectorAll("[data-goto]").forEach((button) => {
 });
 
 boot().catch((error) => banner(error.message, "bad"));
+
+/* Both composers talk to the same endpoint; only the panel they write into
+   differs. Wrapped rather than passed by reference, because a listener hands
+   the callback a click event and that would arrive as the element id. */
+$("explain-send").addEventListener("click", () => askOllieToExplain());
+$("explain-input").addEventListener("keydown", (event) => {
+  // Enter sends, Shift+Enter makes a new line — the same as the other composers
+  // on this page, so the habit carries over.
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    askOllieToExplain();
+  }
+});
+
+$("learn-ask").addEventListener("click",
+  () => askOllieToExplain("learn-question", "learn-answer"));
+$("learn-question").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    askOllieToExplain("learn-question", "learn-answer");
+  }
+});
+
+$("subject").addEventListener("change", (e) => chooseSubject(Number(e.target.value)));
+$("change-subject").addEventListener("click", showStart);
+$("change-mode").addEventListener("click", showModeChoice);
+$("mode-back").addEventListener("click", showStart);
+$("note-toggle").addEventListener("click", toggleNote);
+$("learn-to-practice").addEventListener("click", () => startPractice());
+
+/* ---- the voice ------------------------------------------------------- */
+$("voice-toggle").addEventListener("click", () => {
+  const on = SPEECH.toggleEnabled();
+  if (!on) stopSpeaking();
+  renderVoiceControls();
+  // Turning it on is itself the click a browser requires before it will speak,
+  // so the first thing Ollie says can happen right here. One short line, not
+  // the lesson: being read a whole page you did not ask for is the thing the
+  // toggle exists to prevent.
+  if (on) {
+    speech.reading = "voice-toggle";
+    SPEECH.speak([{ id: null, text: "Right, I'll read it out. Press play whenever you want me to start." }],
+                 speechHandlers("voice-toggle"));
+  }
+});
+$("voice-rate").addEventListener("change", (event) => {
+  SPEECH.setRate(event.target.value);
+});
+$("speak-lesson").addEventListener("click",
+  () => speakToggle("speak-lesson", lessonSegments(learn.lesson)));
+$("speak-note").addEventListener("click",
+  () => speakToggle("speak-note", noteSegments(learn.current)));

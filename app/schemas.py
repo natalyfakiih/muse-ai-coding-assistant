@@ -69,3 +69,18 @@ class CourseCreate(BaseModel):
     # Used as a URL path segment (/courses/{course_id}/...) elsewhere in the
     # API, so kept to characters that never need escaping there.
     course_id: str = Field(min_length=1, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")
+
+class SubjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    checker: str = Field(default="python", max_length=30)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class MaterialCreate(BaseModel):
+    title: str = Field(default="", max_length=200)
+    body: str = Field(min_length=1, max_length=200_000)
+    position: int | None = None
+
+
+class QuestionBody(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)

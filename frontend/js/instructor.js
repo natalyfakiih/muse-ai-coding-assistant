@@ -17,7 +17,8 @@ const escapeHtml = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const state = { courseId: "CS101", studentId: null, assignmentId: null, overview: null };
+const state = { courseId: "CS101", studentId: null, assignmentId: null,
+                overview: null, subjectId: null, checkers: null };
 
 function banner(text, kind = "") {
   const element = $("banner");
@@ -60,6 +61,144 @@ async function loadClass() {
 }
 
 /* ----------------------------------------------------------- student view */
+/* ------------------------------------------------------------- subjects */
+/* A subject is what decides how phase 3 marks: Python runs the code, maths
+   compares the answer symbolically. Phases 1 and 2 are the same either way.
+   Material is written or pasted here, and Ollie explains out of it and
+   nothing else. */
+
+async function loadSubjects() {
+  const [checkers, subjects] = await Promise.all([
+    api("/checkers"),
+    api(`/courses/${state.courseId}/subjects`),
+  ]);
+  state.checkers = checkers;
+
+  const select = $("new-subject-checker");
+  if (select && !select.options.length) {
+    select.innerHTML = checkers
+      .map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.id)}</option>`).join("");
+    select.addEventListener("change", showCheckerNote);
+  }
+  showCheckerNote();
+
+  $("subject-list").innerHTML = subjects.length
+    ? subjects.map((s) => `
+        <button type="button" class="subject-row" data-subject="${s.id}"
+                aria-pressed="${state.subjectId === s.id}">
+          <span class="nm">${escapeHtml(s.name)}</span>
+          <span class="ck">${escapeHtml(s.checker)}</span>
+          <span class="ct">${s.materials} note${s.materials === 1 ? "" : "s"}</span>
+        </button>`).join("")
+    : `<p class="tagline">No subjects yet. Add one below.</p>`;
+
+  document.querySelectorAll("[data-subject]").forEach((b) => {
+    b.addEventListener("click", () => selectSubject(Number(b.dataset.subject),
+                                                    b.querySelector(".nm").textContent));
+  });
+}
+
+function showCheckerNote() {
+  const select = $("new-subject-checker"), note = $("checker-note");
+  if (!select || !note || !state.checkers) return;
+  const found = state.checkers.find((c) => c.id === select.value);
+  // The honest description, so an instructor picking "math" knows what phase 3
+  // will actually do rather than finding out after their students submit.
+  note.textContent = found ? found.description : "";
+}
+
+async function selectSubject(id, name) {
+  state.subjectId = id;
+  document.querySelectorAll("[data-subject]").forEach((b) => {
+    b.setAttribute("aria-pressed", String(Number(b.dataset.subject) === id));
+  });
+  $("material-panel").classList.remove("hidden");
+  $("material-subject").textContent = name || "";
+  const materials = await api(`/subjects/${id}/materials`);
+  $("material-list").innerHTML = materials.length
+    ? materials.map((m) => `
+        <div class="material-item">
+          <b>${escapeHtml(m.title || "Untitled")}</b>
+          ${escapeHtml(truncate(m.body, 150))}
+        </div>`).join("")
+    : `<p class="tagline">Nothing yet. Ollie will say a question isn't covered
+       until there is something here.</p>`;
+}
+
+async function createSubject(event) {
+  event.preventDefault();
+  const status = $("subject-form-status");
+  status.textContent = "Adding…";
+  try {
+    const subject = await api(`/courses/${state.courseId}/subjects`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: $("new-subject-name").value,
+        checker: $("new-subject-checker").value,
+        description: $("new-subject-desc").value || null,
+      }),
+    });
+    $("new-subject-name").value = "";
+    $("new-subject-desc").value = "";
+    status.textContent = "Added.";
+    await loadSubjects();
+    selectSubject(subject.id, subject.name);
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+async function addMaterial(event) {
+  event.preventDefault();
+  if (!state.subjectId) return;
+  const status = $("material-form-status");
+  status.textContent = "Saving…";
+  try {
+    const result = await api(`/subjects/${state.subjectId}/materials`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: $("new-material-title").value,
+        body: $("new-material-body").value,
+      }),
+    });
+    $("new-material-title").value = "";
+    $("new-material-body").value = "";
+    status.textContent = `Saved — ${result.paragraphs} paragraph(s) Ollie can retrieve.`;
+    await Promise.all([loadSubjects(), selectSubject(state.subjectId,
+                                                     $("material-subject").textContent)]);
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
+
+/* An instructor asking their own material the questions their students will.
+   The useful half is the refusal: when Ollie says a topic isn't covered, that
+   is decided in Python before any model runs, so it is a fact about the notes
+   and a to-do list for whoever wrote them. */
+async function tryOllie(event) {
+  event.preventDefault();
+  if (!state.subjectId) return;
+  const question = $("try-question").value.trim();
+  if (!question) return;
+  const out = $("try-answer");
+  out.innerHTML = `<p class="tagline">Looking through the notes…</p>`;
+  try {
+    const result = await api(`/subjects/${state.subjectId}/explain`, {
+      method: "POST", body: JSON.stringify({ question }),
+    });
+    const cites = (result.excerpts || []).map((e) =>
+      `<li>${escapeHtml(typeof e === "string" ? e : (e.title || e.body || ""))}</li>`).join("");
+    out.innerHTML = `
+      <div class="try-verdict ${result.covered ? "is-covered" : "is-gap"}">
+        ${result.covered ? "covered by your notes" : "not in your notes"}
+      </div>
+      <p class="try-text">${escapeHtml(result.answer)}</p>
+      ${cites ? `<p class="explain-from">drawn from:</p><ul class="explain-cites">${cites}</ul>` : ""}`;
+  } catch (error) {
+    out.innerHTML = `<p class="tagline">${escapeHtml(error.message)}</p>`;
+  }
+}
+
 async function loadStudents() {
   // One call for the whole roster. The previous version fetched a full overview
   // per student, which was N requests to render a table of N rows.
@@ -623,7 +762,7 @@ async function boot() {
       banner("");
     }
     await loadCourses();
-    await Promise.all([loadClass(), loadStudents(), loadAssignments()]);
+    await Promise.all([loadClass(), loadStudents(), loadAssignments(), loadSubjects()]);
   } catch (error) {
     banner(error.message, "bad");
   }
@@ -632,3 +771,8 @@ async function boot() {
 // This page is a snapshot, not a live feed: reload after a student submits.
 $("refresh").addEventListener("click", boot);
 boot();
+
+$("subject-form").addEventListener("submit", createSubject);
+$("material-form").addEventListener("submit", addMaterial);
+
+$("try-form").addEventListener("submit", tryOllie);

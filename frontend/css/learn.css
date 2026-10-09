@@ -1,0 +1,288 @@
+/* The Learn page: Ollie teaching one note, with the note beside him.
+ *
+ * Typographic decisions here are the same ones a textbook makes, for the same
+ * reasons. The lesson column is capped near 70 characters because a line much
+ * longer than that costs the eye the return sweep, and this is the one page in
+ * MUSE meant to be read continuously rather than scanned. The steps are a real
+ * <ol> so the structure survives a screen reader and a stylesheet failing to
+ * load. Nothing animates except the paragraph flash, which exists to answer
+ * "where did that claim come from" and stops as soon as it has.
+ *
+ * MUSE has no light palette — the app is dark, full stop — so these use the
+ * shared dark tokens directly rather than theming twice.
+ */
+
+/* Narrower than the rest of the app on purpose. The practice page is a
+   dashboard and wants every pixel; this one is prose, and a measure much past
+   70 characters costs the eye its return sweep. The page is sized so the
+   lesson column lands near that on its own rather than being capped and
+   leaving half the card empty. */
+.learn{max-width:1180px; margin-inline:auto; padding:clamp(14px,3vw,26px) 0 40px}
+.learn.hidden{display:none}
+
+.learn-head{
+  display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap;
+  margin-bottom:20px;
+}
+.learn-head > div{flex:1 1 320px; min-width:0}
+.learn-head .start-h{margin-bottom:6px}
+
+.learn-actions{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+
+/* ---- reading it out loud --------------------------------------------- */
+.voice-bar{display:flex; align-items:center; gap:10px}
+.voice-bar.hidden{display:none}
+.voice-toggle{
+  display:inline-flex; align-items:center; gap:8px; cursor:pointer; font:inherit;
+  font-size:12.5px; color:var(--ink-dim); background:var(--panel);
+  border:none; box-shadow:0 0 0 1px var(--hairline-soft);
+  border-radius:999px; padding:8px 15px;
+  transition:color .15s, box-shadow .15s;
+}
+.voice-toggle:hover{color:var(--ink); box-shadow:0 0 0 1px var(--hairline)}
+/* On is marked by the ring and the label text, never by colour alone — the
+   label says "on" or "off" in words. */
+.voice-toggle.is-on{color:var(--ink); box-shadow:0 0 0 1px var(--accent-dim)}
+.voice-toggle .vt-icon{font-size:13px; line-height:1; opacity:.75}
+.voice-toggle.is-on .vt-icon{opacity:1}
+
+.voice-rate{display:inline-flex; align-items:center; gap:7px}
+.voice-rate.hidden{display:none}
+.voice-rate select{
+  font:inherit; font-size:12.5px; color:var(--ink); background:var(--panel);
+  border:1px solid var(--line); border-radius:999px; padding:6px 10px;
+}
+
+/* The play buttons live in card headers, so they stay small and quiet until
+   they are the one doing the reading. */
+.speak-btn{
+  font-family:var(--mono); font-size:11px; letter-spacing:.02em;
+  white-space:nowrap;
+}
+.speak-btn.hidden{display:none}
+.speak-btn.is-live{color:var(--ink); box-shadow:0 0 0 1px var(--accent-dim)}
+.card > h2 .right{display:inline-flex; align-items:center; gap:10px}
+
+.ls-tools{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:7px}
+.ls-tools .ls-from{margin-top:0}
+.ls-say{
+  padding:0; border:0; background:none; cursor:pointer; font:inherit;
+  font-family:var(--mono); font-size:11px; color:var(--ink-faint);
+}
+.ls-say:hover{color:var(--accent)}
+.ls-say.is-live{color:var(--ink)}
+
+/* The block being spoken. A rule down the side rather than a wash behind the
+   text: a background tint on a paragraph of body copy costs it contrast, and
+   this is the one feature whose users may be the least able to afford that. */
+.is-speaking{position:relative}
+.lesson-hook.is-speaking,
+.lesson-step.is-speaking,
+.note-text p.is-speaking{
+  box-shadow:-11px 0 0 -8px var(--accent);
+}
+.lesson-idea.is-speaking,
+.lesson-worked.is-speaking,
+.lesson-hook-box.is-speaking,
+.lesson-check.is-speaking{
+  box-shadow:0 0 0 1px var(--accent-dim), -11px 0 0 -8px var(--accent);
+}
+@media (prefers-reduced-motion:no-preference){
+  .is-speaking{transition:box-shadow .2s ease}
+}
+
+/* ---- the note list: a row of chapters ------------------------------- */
+.note-tabs{
+  display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;
+}
+.note-tab{
+  display:flex; align-items:center; gap:10px; cursor:pointer;
+  font:inherit; color:var(--ink-dim); text-align:left;
+  background:var(--panel); border:none; box-shadow:0 0 0 1px var(--hairline-soft);
+  border-radius:999px; padding:9px 16px 9px 11px;
+  transition:color .15s, box-shadow .15s;
+}
+.note-tab:hover{color:var(--ink); box-shadow:0 0 0 1px var(--hairline)}
+/* The active tab is marked by its ring and its weight, not by colour alone,
+   and it keeps its own text colour on hover — a tab whose label vanishes
+   under the cursor is the one bug people actually report. */
+.note-tab.active{
+  color:var(--ink); box-shadow:0 0 0 1px var(--accent-dim);
+  background:var(--panel-2);
+}
+.note-tab.active:hover{color:var(--ink)}
+.note-tab .nt-n{
+  display:grid; place-items:center; flex:0 0 auto;
+  width:21px; height:21px; border-radius:50%;
+  background:var(--panel-2); box-shadow:0 0 0 1px var(--hairline-soft);
+  font-family:var(--mono); font-size:10.5px; color:var(--ink-dim);
+}
+.note-tab.active .nt-n{background:var(--accent-dim); color:#fff; box-shadow:none}
+.note-tab .nt-t{font-size:13.5px; font-weight:500}
+.note-tab .nt-m{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint)}
+
+/* ---- two columns: the lesson, and the source --------------------------- */
+.learn-cols{
+  display:grid; gap:16px; align-items:start;
+  grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);
+}
+.learn-main, .learn-side{display:flex; flex-direction:column; gap:16px; min-width:0}
+@media (max-width:1050px){
+  .learn-cols{grid-template-columns:minmax(0,1fr)}
+}
+
+/* ---- the lesson ------------------------------------------------------- */
+#lesson{max-width:70ch}
+
+.lesson-wait{display:flex; align-items:center; gap:13px}
+
+.lesson-hook{
+  margin:0 0 18px; font-size:17.5px; line-height:1.5; color:var(--ink);
+  font-weight:500; letter-spacing:-.01em;
+}
+
+.lesson-idea{
+  display:flex; gap:14px; align-items:flex-start;
+  padding:15px 17px; margin-bottom:22px;
+  background:var(--panel-2); border-radius:var(--radius);
+  box-shadow:0 0 0 1px var(--hairline-soft);
+}
+.lesson-idea .li-label{
+  display:block; font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px;
+}
+.lesson-idea .li-text{margin:0; font-size:15.5px; line-height:1.55; color:var(--ink)}
+
+/* Numbered steps. The number sits in its own column so a wrapped line lines up
+   under the text rather than under the digit. */
+.lesson-steps{list-style:none; margin:0 0 22px; padding:0;
+  display:flex; flex-direction:column; gap:18px}
+.lesson-step{display:grid; grid-template-columns:auto minmax(0,1fr); gap:13px}
+.lesson-step .ls-n{
+  display:grid; place-items:center; width:25px; height:25px; border-radius:50%;
+  background:var(--panel-2); box-shadow:0 0 0 1px var(--hairline-soft);
+  font-family:var(--mono); font-size:12px; color:var(--ink-dim); margin-top:1px;
+}
+.lesson-step h4{
+  margin:0 0 4px; font-size:14.5px; font-weight:600; color:var(--ink);
+  letter-spacing:-.005em;
+}
+.lesson-step p{margin:0; font-size:14.5px; line-height:1.62; color:var(--ink-dim)}
+.ls-from{
+  margin-top:7px; padding:0; border:0; background:none; cursor:pointer;
+  font:inherit; font-size:11.5px; color:var(--ink-faint);
+  text-decoration:underline; text-underline-offset:3px;
+}
+.ls-from:hover{color:var(--accent)}
+
+.lesson-worked{
+  padding:14px 16px; margin-bottom:18px; border-radius:var(--radius);
+  background:var(--panel-2); box-shadow:0 0 0 1px var(--hairline-soft);
+}
+.lesson-worked .lw-label, .lesson-hook-box .lh-label, .lesson-check .lc-label{
+  display:block; font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px;
+}
+/* pre-wrap because a worked example is laid out, not flowed: three equations
+   on three lines became one run-on line of algebra without it. */
+.lesson-worked p{
+  margin:0; font-size:14.5px; line-height:1.65; color:var(--ink);
+  white-space:pre-wrap;
+}
+.lesson-worked.is-pre p{font-family:var(--mono); font-size:13px; line-height:1.9}
+
+/* Ollie's analogy is the one invented thing on the page, so it is boxed and
+   labelled as his. A mnemonic passed off as course content is how a student
+   ends up writing an analogy down as a definition. */
+.lesson-hook-box{
+  padding:14px 16px; margin-bottom:22px; border-radius:var(--radius);
+  background:rgba(var(--accent-rgb), .07);
+  box-shadow:0 0 0 1px rgba(var(--accent-rgb), .22);
+}
+.lesson-hook-box p{margin:0 0 7px; font-size:14.5px; line-height:1.6; color:var(--ink)}
+.lesson-hook-box .lh-caveat{
+  display:block; font-size:11.5px; line-height:1.5; color:var(--ink-faint);
+}
+
+/* ---- the retrieval question ------------------------------------------ */
+.lesson-check{
+  padding:16px 17px; border-radius:var(--radius);
+  background:var(--panel-2); box-shadow:0 0 0 1px var(--hairline-soft);
+}
+.lesson-check .lc-q{
+  margin:0 0 11px; font-size:15.5px; line-height:1.5; color:var(--ink);
+  font-weight:500;
+}
+.lesson-check textarea{
+  width:100%; resize:vertical; font:inherit; font-size:14px; line-height:1.55;
+  color:var(--ink); background:var(--bg); border:1px solid var(--line);
+  border-radius:8px; padding:10px 12px;
+}
+.lesson-check textarea:focus{outline:none; border-color:var(--accent-dim)}
+.lc-actions{display:flex; align-items:center; gap:13px; flex-wrap:wrap; margin-top:11px}
+.lc-actions .tagline{flex:1 1 220px; min-width:0; font-size:11.5px; line-height:1.5}
+
+.lc-mine, .lc-theirs{margin-top:13px}
+.lc-sub{
+  display:block; font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px;
+}
+.lc-mine p, .lc-theirs p{margin:0; font-size:14px; line-height:1.6}
+.lc-mine p{color:var(--ink-dim)}
+/* The note's answer carries a rule in the accent, so the two are telling apart
+   at a glance without either being marked right or wrong. */
+.lc-theirs{
+  padding-left:12px; border-left:2px solid var(--accent-dim);
+}
+.lc-theirs p{color:var(--ink)}
+.lc-close{margin:13px 0 0; font-size:12.5px; line-height:1.55; color:var(--ink-faint)}
+
+.lesson-next{
+  display:flex; gap:11px; flex-wrap:wrap; align-items:center;
+  margin-top:24px; padding-top:18px; border-top:1px solid var(--hairline-soft);
+}
+
+/* ---- the note's own text --------------------------------------------- */
+.note-title{margin:0 0 12px; font-size:15px; font-weight:600; color:var(--ink)}
+.note-text p{
+  position:relative; margin:0 0 14px; padding-left:27px;
+  font-size:13.5px; line-height:1.68; color:var(--ink-dim);
+  white-space:pre-wrap;
+}
+.note-text p:last-child{margin-bottom:0}
+/* Code and equations keep their own face here too, so the note panel and the
+   lesson show the same block the same way. */
+.note-text p.is-pre{font-family:var(--mono); font-size:12px; line-height:1.75}
+.para-n{
+  position:absolute; left:0; top:2px;
+  font-family:var(--mono); font-size:10px; color:var(--ink-faint);
+  width:18px; text-align:right;
+}
+.note-hidden .body{display:none}
+
+/* The flash answers one question — which paragraph that claim came from — and
+   then gets out of the way. */
+.note-text p.flash{
+  animation:para-flash 1.9s ease-out;
+  border-radius:6px;
+}
+@keyframes para-flash{
+  0%, 35%{background:rgba(var(--accent-rgb), .15); color:var(--ink)}
+  100%   {background:transparent}
+}
+@media (prefers-reduced-motion:reduce){
+  .note-text p.flash{animation:none; background:rgba(var(--accent-rgb), .12)}
+}
+
+/* ---- the learn-or-practise choice ------------------------------------ */
+.mode-card{min-height:200px}
+.mode-card .ck{
+  font-family:var(--mono); font-size:11px; color:var(--ink-faint);
+  flex:0 0 auto;
+}
+/* A door with nothing behind it stays readable and says why, rather than
+   greying out into something that looks broken. */
+.mode-card.is-blocked{cursor:not-allowed; opacity:1}
+.mode-card.is-blocked:hover{border-color:var(--line); transform:none}
+.mode-card.is-blocked h3, .mode-card.is-blocked .sc-desc{color:var(--ink-faint)}
+.mode-card.is-blocked .sc-how{color:var(--warn)}

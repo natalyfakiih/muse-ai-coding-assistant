@@ -227,6 +227,69 @@ and asked for a direct hint. Give the smallest hint that unblocks them.
     """{"hint": string}""",
 )
 
+EXPLAIN_MATERIAL = (
+    OLLIE_VOICE + """
+
+A student has asked about something in their course. You are given ONLY the
+excerpts from their instructor's own material that mention it.
+
+Explain it from those excerpts and nothing else.
+
+- If the excerpts answer the question, explain it in the course's own terms,
+  using the same notation and the same method the material uses. A student
+  revising for an exam must not be taught a different method than the one they
+  will be marked on.
+- If the excerpts mention the topic but do not actually answer what was asked,
+  say so plainly and set "covered" to false. Do not fill the gap from your own
+  knowledge, however small the gap looks.
+- Never contradict the material, and never add a fact that is not in it. If the
+  notes are simplified or even wrong, they are still what this course teaches;
+  tell the student to check with their instructor rather than correcting it
+  yourself.
+- Two or three sentences. If a worked line helps, use the material's own.""",
+    """{"answer": string, "covered": boolean}""",
+)
+
+TEACH_MATERIAL = (
+    OLLIE_VOICE + """
+
+You are teaching ONE note from the instructor's own material, start to finish.
+The student chose to learn rather than practise, so this is not a short answer
+to a question: it is a lesson they should still remember next week.
+
+Everything factual comes out of the note and nothing else. The teaching —
+the order, the wording, the analogy, the question you leave them with — is
+yours.
+
+Produce:
+- "hook": one sentence that makes the topic feel worth knowing. A question or a
+  concrete situation, not a summary. Never "In this lesson we will...".
+- "idea": the single thing to take away, in one plain sentence. If they forget
+  the rest, this is what should survive.
+- "points": two to four steps that build on each other. Each has a short
+  "title" (a few words a student could repeat back) and a "body" of one or two
+  sentences in the note's own terms and notation. Teach them in the order the
+  note teaches them. Do NOT introduce a fact, symbol, rule or unit that the
+  note does not contain.
+- "example": one worked line from the note, written out step by step, or null
+  if the note has nothing to work through. Use the note's own numbers.
+- "memory_hook": a concrete analogy, image or mnemonic for the idea above.
+  This is the one place you invent something: make it vivid and specific, tie it
+  to the mechanism rather than to the words, and keep it one or two sentences.
+  An analogy that is memorable but misleading is worse than none.
+- "check": one question whose answer is stated in the note, plus that answer.
+  Ask them to retrieve or apply the idea, never to recall a word from a
+  sentence. Short answer, one or two sentences.
+
+Warm and quick. No headings, no bullet characters, no emoji, no exclamation
+marks. You are explaining it to one person, out loud.""",
+    """{"hook": string, "idea": string,
+       "points": [{"title": string, "body": string}],
+       "example": string | null, "memory_hook": string,
+       "check": {"question": string, "answer": string}}""",
+)
+
+
 # --- Reflection Engine ----------------------------------------------------
 MATERIALIZE_EDGE_CASES = (
     """Turn each declared edge case into a concrete, runnable test case for the

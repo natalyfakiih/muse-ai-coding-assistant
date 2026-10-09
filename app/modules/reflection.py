@@ -310,15 +310,19 @@ def submit(db: Session, spec: Specification, code: str | None = None) -> dict:
     if not spec.is_locked:
         raise ValueError("Specification must be locked before submission.")
 
+    checker = spec.assignment.checker
     entry_point = spec.assignment.entry_point
-    if not entry_point:
+    if checker == "python" and not entry_point:
         raise ValueError(
             "This assignment has no rubric.entry_point, so the behavioral diff "
             "has no function to call."
         )
 
     content = spec.content or {}
-    if not content.get("examples") and not content.get("edge_cases"):
+    # Only the Python checker needs declared cases: there is nothing to run
+    # without them. A maths answer is checked against the instructor's expected
+    # answer, which exists whether or not the student wrote an example.
+    if checker == "python" and not content.get("examples") and not content.get("edge_cases"):
         # Without a declared case there is nothing to run, and returning a clean
         # bill of health would be a lie: the code was never checked against
         # anything. Say so instead of silently accepting the submission.
@@ -335,7 +339,15 @@ def submit(db: Session, spec: Specification, code: str | None = None) -> dict:
         db.delete(existing)
     db.flush()
 
-    rows = behavioral_diff(spec.content or {}, snapshot.content, entry_point)
+    # Phase 3 is the one place the subject matters. Everything downstream — the
+    # classifier, the dashboard, the insights engine, the student's own page —
+    # works on the rows these produce without knowing which ran.
+    if checker == "math":
+        from app.modules import math_check
+        rows = math_check.check(spec.content or {}, snapshot.content,
+                                spec.assignment.rubric or {})
+    else:
+        rows = behavioral_diff(spec.content or {}, snapshot.content, entry_point)
     failures = [row for row in rows if not row["passed"]]
 
     log = _interaction_log(db, spec.id) if failures else []

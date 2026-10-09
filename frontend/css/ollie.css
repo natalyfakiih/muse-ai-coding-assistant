@@ -78,3 +78,17 @@
   .ollie.is-idle .ollie-tuft,
   .ollie.is-idle .ollie-eyes{animation:none}
 }
+
+/* ---- Ollie explaining the instructor's material ---------------------- */
+.explain-answer{display:flex; gap:11px; align-items:flex-start; padding:4px 0 12px}
+.explain-answer:empty{display:none}
+.explain-body{min-width:0}
+.explain-text{margin:0; font-size:14px; line-height:1.6; color:var(--ink)}
+.explain-from{
+  margin:10px 0 4px; font-family:var(--mono); font-size:10.5px;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint);
+}
+.explain-cites{margin:0; padding-left:16px; display:flex; flex-direction:column; gap:4px}
+.explain-cites li{
+  font-size:12.5px; line-height:1.5; color:var(--ink-dim);
+}

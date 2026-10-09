@@ -43,6 +43,54 @@ class Student(Base):
     specifications: Mapped[list["Specification"]] = relationship(back_populates="student")
 
 
+class Subject(Base):
+    """A subject an instructor teaches, and the thing that decides how phase 3
+    checks work.
+
+    `checker` is the one field with teeth: it picks which checker the Reflection
+    Engine runs. "python" runs the student's code in the sandbox and diffs its
+    behaviour against the locked specification; "math" compares a declared
+    answer symbolically. Phases 1 and 2 do not care which subject this is —
+    stating your plan before you act, and getting questions instead of answers,
+    is not a programming idea.
+    """
+
+    __tablename__ = "subjects"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    checker: Mapped[str] = mapped_column(String(30), nullable=False, default="python")
+    description: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    materials: Mapped[list["SubjectMaterial"]] = relationship(
+        back_populates="subject", cascade="all, delete-orphan",
+        order_by="SubjectMaterial.position",
+    )
+
+
+class SubjectMaterial(Base):
+    """What the instructor teaches from, in their own words.
+
+    Ollie explains from these rows and nothing else. Storing the material as
+    plain text rather than a file keeps retrieval simple and keeps the
+    instructor able to edit a sentence without re-uploading a document; a file
+    upload can sit on top of this later and write into the same field.
+    """
+
+    __tablename__ = "subject_materials"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subjects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    subject: Mapped[Subject] = relationship(back_populates="materials")
+
+
 class Assignment(Base):
     __tablename__ = "assignments"
 
@@ -57,6 +105,16 @@ class Assignment(Base):
     # `entry_point` when running the behavioral diff.
     rubric: Mapped[dict] = mapped_column(JSONColumn, nullable=False, default=dict)
     starter_code: Mapped[str | None] = mapped_column(Text)
+    # Nullable so every assignment that existed before subjects did keeps
+    # working untouched: no subject means Python, which is what they all were.
+    subject_id: Mapped[int | None] = mapped_column(ForeignKey("subjects.id"), index=True)
+
+    subject: Mapped["Subject | None"] = relationship()
+
+    @property
+    def checker(self) -> str:
+        """Which phase-3 checker this assignment is graded by."""
+        return self.subject.checker if self.subject else "python"
 
     @property
     def rubric_items(self) -> list[dict]:

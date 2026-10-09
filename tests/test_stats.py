@@ -190,6 +190,17 @@ def test_seeding_adds_a_new_assignment_without_wiping_anything(db):
     seed_module.seed()          # no --reset
 
     assert db.query(Specification).count() == before, "existing work survived"
-    entry_points = {(a.rubric or {}).get("entry_point") for a in db.query(Assignment).all()}
-    assert entry_points == {"fib", "dedupe", "even_or_odd"}
-    assert db.query(Assignment).count() == 3, "and nothing was duplicated"
+
+    rows = db.query(Assignment).all()
+    entry_points = {(a.rubric or {}).get("entry_point") for a in rows}
+    assert {"fib", "dedupe", "even_or_odd"} <= entry_points, "the Python exercises survived"
+
+    # Asserted as a property, not as a fixed roster. Pinning the exact set made
+    # this fail the moment a fourth assignment was seeded, which is the very
+    # thing the test exists to allow: adding one must not cost anyone their work.
+    def identity(rubric):
+        return ((rubric or {}).get("entry_point")
+                or (rubric or {}).get("expected_answer"))
+
+    identities = [identity(a.rubric) for a in rows]
+    assert len(identities) == len(set(identities)), "nothing was duplicated"

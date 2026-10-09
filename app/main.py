@@ -123,12 +123,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from app.api import dashboard, reflection, specifications, tutoring  # noqa: E402
+from app.api import (  # noqa: E402
+    dashboard, reflection, specifications, subjects, tutoring,
+)
 
 app.include_router(specifications.router, prefix="/api")
 app.include_router(tutoring.router, prefix="/api")
 app.include_router(reflection.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(subjects.router, prefix="/api")
 
 
 # --------------------------------------------------------------------------

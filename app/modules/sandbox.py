@@ -236,3 +236,136 @@ def run_case(code: str, entry_point: str, input_spec: str) -> RunResult:
         error=payload.get("error"),
         stdout=(payload.get("stdout") or "")[: settings.SANDBOX_MAX_OUTPUT_BYTES],
     )
+
+# --------------------------------------------------------------------------
+# Expression comparison, for subjects whose answer is a value rather than a
+# program. Same hardening as run_case: a fresh subprocess, a wall-clock
+# timeout and the POSIX resource limits. Student input is never parsed in the
+# server process — sympy's parser builds and evaluates expression trees, and a
+# crafted input can hang it, which is exactly what the CPU limit is for.
+# --------------------------------------------------------------------------
+_MATH_RUNNER = '''
+import json, sys
+
+payload = json.loads(sys.argv[1])
+result = {"ok": False, "equivalent": None, "mode": None,
+          "student_value": None, "expected_value": None, "error": None}
+try:
+    import re
+    from sympy import simplify, N, Abs
+    from sympy.parsing.sympy_parser import (
+        parse_expr, standard_transformations,
+        implicit_multiplication_application, convert_xor,
+    )
+    T = standard_transformations + (implicit_multiplication_application, convert_xor)
+
+    # parse_expr() ends in eval(). Python puts __builtins__ into any globals
+    # dict handed to eval unless it is already there, so an "answer" of
+    # __import__("os").system(...) really does run. Verified: a crafted answer
+    # wrote a file and read /etc/hostname before this was locked down.
+    #
+    # Two independent locks, because one of them will eventually be wrong:
+    #   1. a character whitelist, so the dangerous spellings never reach eval
+    #   2. an empty __builtins__, so they would do nothing if they did
+    SAFE = re.compile(r"^[0-9A-Za-z_+\-*/^().,!<>= \t]*$")
+
+    NAMESPACE = {}
+    exec("from sympy import *", NAMESPACE)
+    NAMESPACE["__builtins__"] = {}
+
+    def read(text):
+        text = str(text)
+        if len(text) > 500:
+            raise ValueError("answer is too long to be an expression")
+        if not SAFE.match(text):
+            raise ValueError("answer contains characters that are not maths")
+        if "__" in text or "lambda" in text:
+            raise ValueError("answer contains something that is not maths")
+        return parse_expr(text, transformations=T, global_dict=NAMESPACE,
+                          evaluate=True)
+
+    student = read(payload["student"])
+    expected = read(payload["expected"])
+    result["student_value"] = str(student)
+    result["expected_value"] = str(expected)
+
+    # Exact first: 1/2 and 0.5 and sqrt(4)/4 should all count as the same
+    # answer when they genuinely are.
+    if simplify(student - expected) == 0:
+        result.update(ok=True, equivalent=True, mode="symbolic")
+    else:
+        # Then numerically, because a student who writes 1.5708 for pi/2 has
+        # the right answer and symbolic equality will say they do not.
+        tol = payload.get("tolerance")
+        if tol is not None:
+            diff = Abs(N(student) - N(expected))
+            close = bool(diff <= N(tol))
+            result.update(ok=True, equivalent=close, mode="numeric")
+        else:
+            result.update(ok=True, equivalent=False, mode="symbolic")
+except BaseException as exc:
+    result["error"] = "%s: %s" % (type(exc).__name__, exc)
+
+sys.stderr.write("\\n__MUSE_RESULT__" + json.dumps(result))
+'''
+
+
+@dataclass
+class MathResult:
+    ok: bool
+    equivalent: bool | None = None
+    mode: str | None = None
+    student_value: str | None = None
+    expected_value: str | None = None
+    error: str | None = None
+    timed_out: bool = False
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def run_expression(student: str, expected: str, tolerance: float | None = None) -> MathResult:
+    """Is the student's answer the same value as the expected one?"""
+    if not str(student or "").strip():
+        return MathResult(ok=False, error="no answer given")
+
+    with tempfile.TemporaryDirectory(prefix="muse-math-") as workdir:
+        path = Path(workdir)
+        (path / "_math.py").write_text(_MATH_RUNNER, encoding="utf-8")
+
+        env = {
+            "PATH": os.environ.get("PATH", ""),
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "HOME": workdir,
+        }
+        if os.name == "nt":
+            for key in ("SYSTEMROOT", "SYSTEMDRIVE", "TEMP", "TMP", "PATHEXT", "COMSPEC"):
+                if key in os.environ:
+                    env[key] = os.environ[key]
+
+        try:
+            # No -S here: sympy lives in site-packages, and -S would keep it off
+            # sys.path. -I still isolates the environment and the user site.
+            proc = subprocess.run(
+                [sys.executable, "-I", "_math.py",
+                 json.dumps({"student": student, "expected": expected,
+                             "tolerance": tolerance})],
+                cwd=workdir, env=env, capture_output=True, text=True,
+                timeout=settings.SANDBOX_TIMEOUT_SECONDS,
+                preexec_fn=_limits if POSIX else None,
+            )
+        except subprocess.TimeoutExpired:
+            return MathResult(ok=False, error="timed out", timed_out=True)
+        except Exception as exc:  # noqa: BLE001
+            return MathResult(ok=False, error=f"sandbox failure: {type(exc).__name__}: {exc}")
+
+    marker = "__MUSE_RESULT__"
+    stderr = proc.stderr or ""
+    if marker not in stderr:
+        return MathResult(ok=False, error=(stderr or "no result").strip()[:300])
+    try:
+        payload = json.loads(stderr.split(marker, 1)[1])
+    except ValueError:
+        return MathResult(ok=False, error="unreadable result")
+    return MathResult(**payload)

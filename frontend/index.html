@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/static/css/charts.css?v=20261009">
 <link rel="stylesheet" href="/static/css/dashboard.css?v=20261009">
 <link rel="stylesheet" href="/static/css/ollie.css?v=20261009">
+<link rel="stylesheet" href="/static/css/learn.css?v=20261009">
 </head>
 <body>
 
@@ -17,8 +18,12 @@
   <div class="spacer"></div>
   <label class="tagline" for="student">student</label>
   <select id="student"></select>
-  <label class="tagline" for="assignment">assignment</label>
-  <select id="assignment"></select>
+  <label class="tagline" for="subject">subject</label>
+  <select id="subject"></select>
+  <label class="tagline needs-subject" for="assignment">exercise</label>
+  <select id="assignment" class="needs-subject"></select>
+  <button id="change-mode" class="linkish" type="button">learn or practise</button>
+  <button id="change-subject" class="linkish" type="button">change subject</button>
   <a href="/instructor" class="tagline">instructor view →</a>
 </header>
 
@@ -31,6 +36,108 @@
 
 <main>
   <div id="banner" class="banner hidden"></div>
+
+  <section id="start" class="start">
+    <div class="start-intro" id="start-intro"></div>
+    <h1 class="start-h">What are you working on?</h1>
+    <p class="start-sub">Pick a subject. Every one of them works the same way:
+       say what you're going to do, do it yourself, then see where the two
+       disagree.</p>
+    <div class="subject-grid" id="subject-grid"></div>
+  </section>
+
+  <!-- ================= THE TWO WAYS IN ================= -->
+  <!-- Reading the notes and doing the exercises are different kinds of work,
+       and the second one locks an editor behind a specification gate. Making
+       the student choose means neither is dressed up as the other: Learn never
+       pretends to check anything, and Practice never pretends to teach. -->
+  <section id="mode" class="start hidden">
+    <div class="start-intro" id="mode-intro"></div>
+    <h1 class="start-h" id="mode-h">What now?</h1>
+    <p class="start-sub">Either one first. You can switch at any point, and
+       nothing you have already done goes away.</p>
+    <div class="subject-grid" id="mode-grid"></div>
+    <button class="linkish" id="mode-back" type="button" style="margin-top:22px">
+      ← a different subject</button>
+  </section>
+
+  <!-- ================= LEARN ================= -->
+  <!-- A separate page on purpose. The practice page is built around a locked
+       specification and an editor; dropping a lesson into it would put reading
+       and being measured in the same frame. -->
+  <section id="learn" class="learn hidden">
+    <div class="learn-head">
+      <div>
+        <h1 class="start-h" id="learn-h">Your notes</h1>
+        <p class="start-sub" id="learn-sub" style="margin-bottom:0">
+          Pick a note. I'll teach it, then ask you one question about it.</p>
+      </div>
+      <div class="learn-actions">
+        <div class="voice-bar hidden" id="voice-bar">
+          <button class="voice-toggle" id="voice-toggle" type="button" aria-pressed="false">
+            <span class="vt-icon" aria-hidden="true">🔊</span>
+            <span class="vt-label">Read aloud: off</span>
+          </button>
+          <label class="voice-rate hidden" id="voice-rate-wrap">
+            <span class="tagline">speed</span>
+            <select id="voice-rate">
+              <option value="0.75">slower</option>
+              <option value="0.95" selected>normal</option>
+              <option value="1.2">faster</option>
+            </select>
+          </label>
+        </div>
+        <button class="primary" id="learn-to-practice" type="button">
+          I'm ready to practise →</button>
+      </div>
+    </div>
+
+    <div class="note-tabs" id="note-tabs"></div>
+
+    <div class="learn-cols">
+      <div class="learn-main">
+        <div class="card" id="lesson-card">
+          <h2>Ollie teaches it
+            <span class="right">
+              <button class="ghost speak-btn hidden" id="speak-lesson" type="button">
+                ▶ Read it to me</button>
+              <span class="tagline" id="lesson-source">from your instructor's notes</span>
+            </span>
+          </h2>
+          <div class="body" id="lesson"></div>
+        </div>
+
+        <div class="card">
+          <h2>Ask about this note <span class="right tagline">from your notes only</span></h2>
+          <div class="body tight">
+            <div id="learn-answer" class="explain-answer"></div>
+            <div class="composer">
+              <textarea id="learn-question" rows="2"
+                placeholder="What does the material say about…?"></textarea>
+              <button class="primary" id="learn-ask">Ask</button>
+            </div>
+            <div class="hint-bar">
+              <span class="tagline">If it isn't in your notes, Ollie says so
+                instead of guessing.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="learn-side">
+        <div class="card">
+          <h2>The note itself
+            <span class="right">
+              <button class="ghost speak-btn hidden" id="speak-note" type="button">
+                ▶ Read</button>
+              <button id="note-toggle" class="ghost">Hide</button>
+            </span>
+          </h2>
+          <div class="body" id="note-body"></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- ================= PHASE 1 ================= -->
   <section id="phase-1" class="cols two">
@@ -67,6 +174,23 @@
       <div class="card">
         <h2>Assignment</h2>
         <div class="body" id="assignment-prompt"></div>
+      </div>
+
+      <div class="card hidden" id="explain-card">
+        <h2>Ask Ollie about <span id="explain-subject">the subject</span>
+          <span class="right tagline">from your notes only</span></h2>
+        <div class="body tight">
+          <div id="explain-answer" class="explain-answer"></div>
+          <div class="composer">
+            <textarea id="explain-input" rows="2"
+              placeholder="What does the material say about…?"></textarea>
+            <button class="primary" id="explain-send">Ask</button>
+          </div>
+          <div class="hint-bar">
+            <span class="tagline">Ollie answers out of your instructor's notes.
+              If it isn't in there, he says so instead of guessing.</span>
+          </div>
+        </div>
       </div>
       <div class="card">
         <h2>Rubric <span class="right tagline" id="rubric-count"></span></h2>
@@ -210,7 +334,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
 <script src="/static/js/ollie.js?v=20261009"></script>
+<script src="/static/js/speech.js?v=20261009"></script>
 <script src="/static/js/charts.js?v=20261009"></script>
-<script src="/static/js/app.js?v=20260920"></script>
+<script src="/static/js/app.js?v=20261009"></script>
 </body>
 </html>

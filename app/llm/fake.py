@@ -481,6 +481,98 @@ def _narrative_summary(data: dict) -> dict:
     }
 
 
+def _sentences_of(text: str) -> list[str]:
+    parts = re.split(r"(?<=[.!?])\s+", str(text or "").replace("\n", " "))
+    return [p.strip() for p in parts if len(p.strip()) > 12]
+
+
+def _explain_material(data: dict) -> dict:
+    """Quote the instructor's own material back.
+
+    The real version has a model put it in its own words. The stub stays
+    verbatim on purpose: it is the one answer that is certainly faithful to the
+    notes, so an offline demo shows the right behaviour even though the prose is
+    flat."""
+    excerpts = data.get("material") or []
+    if not excerpts:
+        return {"answer": "", "covered": False}
+    first = excerpts[0]
+    said = " ".join(_sentences_of(first.get("text"))[:2])
+    if not said:
+        return {"answer": "", "covered": False}
+    return {
+        "answer": f"[offline stub] From \"{first.get('title') or 'your notes'}\": {said}",
+        "covered": True,
+    }
+
+
+def _teach_material(data: dict) -> dict:
+    """A lesson assembled out of the note's own paragraphs.
+
+    Every point is a sentence the note actually contains, so this clears the
+    grounding floor in material.teach by construction — which is the point. The
+    stub must exercise the same path a real lesson takes, not a path where every
+    point gets dropped and the page looks broken offline.
+    """
+    note = str(data.get("note") or "")
+    title = str(data.get("note_title") or "this topic")
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", note) if p.strip()]
+
+    # A block of equations or code is the worked example, not a teaching point:
+    # a step titled "v = u + a" or "def lengths(words): out =" teaches nothing.
+    # Equations are caught by having almost no words; code is not — it is full
+    # of them — so indentation and a def line are what give it away.
+    def is_code(text: str) -> bool:
+        lines = [line for line in text.split("\n") if line.strip()]
+        indented = sum(1 for line in lines if line.startswith(("    ", "\t")))
+        return (indented >= max(1, len(lines) // 2)
+                or bool(re.search(r"\bdef\s+\w+\(", text)))
+
+    def is_prose(text: str) -> bool:
+        return (len(re.findall(r"[a-z]{3,}", text.lower())) >= 6
+                and not is_code(text))
+
+    prose = [p for p in paragraphs if is_prose(p)]
+    verbatim = [p for p in paragraphs if not is_prose(p)]
+    lead = _sentences_of(prose[0] if prose else note)
+
+    points = []
+    for para in prose[:4]:
+        said = _sentences_of(para)
+        if not said:
+            continue
+        words = said[0].split()
+        points.append({
+            "title": " ".join(words[:4]).rstrip(".,:;"),
+            "body": " ".join(said[:2]),
+        })
+
+    # A code or equation block if there is one, otherwise a paragraph that has
+    # not already been used as a step — repeating step one back as the worked
+    # example is worse than having none.
+    used = {p["body"] for p in points}
+    worked = verbatim[0] if verbatim else next(
+        (p for p in prose if re.search(r"\d", p)
+         and not any(p.startswith(u[:40]) for u in used)), None)
+
+    # The check answer has to be a sentence that says something, so it is taken
+    # from a later paragraph than the lead where there is one.
+    check_source = _sentences_of(prose[1]) if len(prose) > 1 else lead
+    answer = (check_source or lead or [""])[0]
+
+    return {
+        "hook": f"[offline stub] Here is what {title.lower()} is actually for.",
+        "idea": lead[0] if lead else f"[offline stub] {title}.",
+        "points": points,
+        "example": worked,
+        "memory_hook": f"[offline stub] Tie {title.lower()} to something you "
+                       f"already picture, and the rest follows from it.",
+        "check": {"question": f"[offline stub] In your own words, what does the "
+                              f"note say about {title.lower()}?",
+                  "answer": answer} if answer else None,
+    }
+
+
 def _unknown(data: dict) -> dict:
     return {"error": "no offline stub for this task", "echo": data}
 
@@ -498,4 +590,6 @@ _HANDLERS = {
     "classify_diff": _classify_diff,
     "diagnostic_question": _diagnostic_question,
     "narrative_summary": _narrative_summary,
+    "explain_material": _explain_material,
+    "teach_material": _teach_material,
 }
