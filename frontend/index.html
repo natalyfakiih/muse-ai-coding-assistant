@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MUSE — student</title>
 <link rel="stylesheet" href="/static/css/styles.css?v=20260920">
+<link rel="stylesheet" href="/static/css/charts.css?v=20261009">
+<link rel="stylesheet" href="/static/css/dashboard.css?v=20261009">
+<link rel="stylesheet" href="/static/css/ollie.css?v=20261009">
 </head>
 <body>
 
@@ -32,10 +35,11 @@
   <!-- ================= PHASE 1 ================= -->
   <section id="phase-1" class="cols two">
     <div class="card">
-      <h2>Specification gate
+      <h2>Talk it through with Ollie
         <span class="right tagline" id="gate-status">draft</span>
       </h2>
       <div class="body tight chat">
+        <div class="ollie-intro" id="ollie-intro"></div>
         <div class="messages" id="gate-messages"></div>
         <div id="gate-locked-notice" class="locked-notice hidden">
           <strong>This specification is locked.</strong>
@@ -49,7 +53,7 @@
             placeholder="Describe what you're going to build, in your own words…"></textarea>
           <div class="composer-buttons">
             <button class="primary" id="gate-send">Send</button>
-            <button id="gate-dont-know" title="Explains what the question is asking — it won't answer it for you">I don't know</button>
+            <button id="gate-dont-know" title="Ollie explains what the question is asking — he won't answer it for you">I don't know</button>
           </div>
         </div>
         <div class="hint-bar">
@@ -74,8 +78,8 @@
       <div class="card">
         <h2>Your specification <span class="right tagline" id="spec-version"></span></h2>
         <div class="body" id="spec-sheet"></div>
+        </div>
       </div>
-    </div>
   </section>
 
   <!-- ================= PHASE 2 ================= -->
@@ -98,15 +102,16 @@
 
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
       <div class="card">
-        <h2>Tutor <span class="right tagline" id="thread-state"></span></h2>
+        <h2>Ollie <span class="right tagline" id="thread-state"></span></h2>
         <div class="body tight chat">
+          <div class="ollie-says compact" id="ollie-coding"></div>
           <div class="messages" id="tutor-messages"></div>
           <div class="composer">
-            <textarea id="tutor-input" rows="2" placeholder="Ask about Python, or about where you're stuck…"></textarea>
+            <textarea id="tutor-input" rows="2" placeholder="Ask Ollie about Python, or about where you're stuck…"></textarea>
             <button class="primary" id="tutor-send">Ask</button>
           </div>
           <div class="hint-bar">
-            <span id="tutor-hint">Questions about your own code get a counter-question, not a fix.</span>
+            <span id="tutor-hint">Ask Ollie about Python and he answers. Ask about your own code and he asks back.</span>
             <button id="escape-hatch" disabled>Give me a direct hint</button>
           </div>
         </div>
@@ -130,8 +135,10 @@
         <button class="primary" data-goto="2">Go to the editor</button>
       </div>
     </div>
-    <div class="cols two" id="submission-view">
+    <div id="submission-view">
+      <div class="cols two">
       <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="ollie-says" id="ollie-reflect"></div>
         <div class="card">
           <h2>Discrepancies to explain <span class="right tagline" id="diff-count"></span></h2>
           <div class="body" id="diffs"></div>
@@ -154,8 +161,20 @@
             <button class="ghost" data-goto="1">View my specification</button>
           </div>
         </div>
+      </div>
+      </div>
+
+      <!-- Full width, under the two columns. These used to sit in the
+           right-hand column, which is ~250px on a laptop, so every chart
+           collapsed into one narrow stack while the left half sat empty. -->
+      <div class="reflection-wide">
         <div class="card">
-          <h2>This session in numbers <span class="right tagline">no AI, just your data</span></h2>
+          <h2>How this went <span class="right tagline">your data, no AI</span></h2>
+          <div class="body" id="my-dashboard"></div>
+        </div>
+
+        <div class="card">
+          <h2>This session in numbers <span class="right tagline">every count, in full</span></h2>
           <div class="body" id="session-stats"></div>
         </div>
 
@@ -190,6 +209,8 @@
 </button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+<script src="/static/js/ollie.js?v=20261009"></script>
+<script src="/static/js/charts.js?v=20261009"></script>
 <script src="/static/js/app.js?v=20260920"></script>
 </body>
 </html>

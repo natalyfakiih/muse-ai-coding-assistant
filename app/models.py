@@ -202,6 +202,34 @@ class DiffResult(Base):
     specification: Mapped[Specification] = relationship(back_populates="diff_results")
 
 
+class SubmissionAttempt(Base):
+    """One row per submission, kept forever.
+
+    `submit()` replaces the DiffResult rows each time, so without this table a
+    student who submitted four times looks identical to one who got it right
+    first try — and "how long between retries" has nothing to measure. This is
+    the retry history; the DiffResults remain the current verdict.
+    """
+
+    __tablename__ = "submission_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    specification_id: Mapped[int] = mapped_column(ForeignKey("specifications.id"), index=True)
+    # Denormalised so per-student and per-class rollups don't need the join.
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
+    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id"), index=True)
+    code_snapshot_id: Mapped[int | None] = mapped_column(ForeignKey("code_snapshots.id"))
+
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    cases_run: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cases_passed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    differences: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Seconds since the previous attempt on this specification. None on the
+    # first one, which is what makes "mean time between retries" honest.
+    seconds_since_previous: Mapped[int | None] = mapped_column(Integer)
+
+
 # --------------------------------------------------------------------------
 # Operational tables
 # --------------------------------------------------------------------------

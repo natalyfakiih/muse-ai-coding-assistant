@@ -59,55 +59,217 @@ async function loadClass() {
     : `<tr><td colspan="4" class="tagline">No submissions yet.</td></tr>`;
 }
 
-async function loadProviderLog() {
-  const ops = await api("/ops/llm-calls?limit=12");
-  $("provider-stats").innerHTML = [
-    stat(ops.total_calls, "calls"),
-    stat(`${Math.round(ops.fallback_rate * 100)}%`, "fell back"),
-    ...Object.entries(ops.mean_latency_ms_by_provider).map(([p, ms]) => stat(`${ms}`, `${p} mean ms`)),
-  ].join("");
-
-  $("provider-log").innerHTML = ops.recent.length
-    ? ops.recent.map((row) => `
-        <tr>
-          <td>${escapeHtml(row.task)}</td>
-          <td>${escapeHtml(row.provider)}${row.fell_back ? ' <span class="tag">fallback</span>' : ""}</td>
-          <td class="num">${row.latency_ms}</td>
-          <td>${row.success ? '<span class="tag factual">ok</span>'
-                            : `<span class="tag bug">${escapeHtml(row.error_type || "failed")}</span>`}</td>
-        </tr>`).join("")
-    : `<tr><td colspan="4" class="tagline">No calls logged yet.</td></tr>`;
-}
-
 /* ----------------------------------------------------------- student view */
 async function loadStudents() {
-  const students = await api(`/students?course_id=${state.courseId}`);
-  const rows = await Promise.all(students.map(async (student) => {
-    const overview = await api(`/courses/${state.courseId}/students/${student.id}/overview`);
-    // Across every assignment, not just the first — a student who only worked on
-    // assignment 2 was invisible here before.
-    const sum = (pick) => overview.assignments.reduce((n, a) => n + pick(a).length, 0);
-    return {
-      ...student,
-      versions: sum((a) => a.specification_versions),
-      questions: sum((a) => a.interactions),
-      diffs: sum((a) => a.diff_results),
-    };
-  }));
+  // One call for the whole roster. The previous version fetched a full overview
+  // per student, which was N requests to render a table of N rows.
+  const data = await api(`/courses/${state.courseId}/analytics/insights`);
+  state.classNorms = data.class_norms;
 
-  $("students").innerHTML = rows.map((row) => `
-    <tr data-student="${row.id}">
-      <td>${escapeHtml(row.name)}</td><td>${escapeHtml(row.cohort || "")}</td>
-      <td class="num">${row.versions}</td><td class="num">${row.questions}</td>
-      <td class="num">${row.diffs}</td>
-    </tr>`).join("");
+  // The distribution belongs beside the class tiles: it is the one number an
+  // instructor wants before any individual name.
+  const spread = $("tier-spread");
+  if (spread) spread.innerHTML = MUSE_CHARTS.tiers(data.distribution,
+    { empty: "No students yet." });
 
-  document.querySelectorAll("[data-student]").forEach((tr) => {
+  $("students").innerHTML = data.roster.length
+    ? data.roster.map((row) => `
+        <tr data-student="${row.student_id}">
+          <td>${escapeHtml(row.name)}</td>
+          <td><span class="tier tier-${row.tier}">${escapeHtml(row.label)}</span></td>
+          <td class="num">${MUSE_CHARTS.human(row.mean_total_seconds)}</td>
+          <td class="num">${row.questions}</td>
+          <td class="num">${row.hints}</td>
+          <td class="num">${row.differences}</td>
+        </tr>`).join("")
+    : `<tr><td colspan="6" class="tagline">No students in this course yet.</td></tr>`;
+
+  document.querySelectorAll("#students [data-student]").forEach((tr) => {
     tr.addEventListener("click", () => selectStudent(Number(tr.dataset.student)));
   });
 
-  const withWork = rows.find((r) => r.questions || r.diffs) || rows[0];
-  if (withWork) selectStudent(withWork.id);
+  // Lead with whoever needs attention most, rather than with whoever is first
+  // alphabetically — that is the reason an instructor opened this page.
+  const rank = { at_risk: 0, needs_attention: 1, on_track: 2, not_started: 3 };
+  const first = [...data.roster].sort((a, b) => rank[a.tier] - rank[b.tier])[0];
+  if (first) selectStudent(first.student_id);
+}
+
+/* ------------------------------------------------------------- dashboard */
+/* Every number on this panel is arithmetic over rows, and every flag carries
+   the rows that produced it. A label on a student's name that an instructor
+   cannot interrogate is worse than no label, because they act on it anyway. */
+
+const TIER_TONE = { on_track: "ok", needs_attention: "warn", at_risk: "bad", not_started: "mute" };
+
+function renderSignals(status) {
+  const flagged = status.signals.filter((s) => s.points > 0);
+  if (!flagged.length) {
+    return `<p class="dash-none">No flags raised. Every signal is at or below the
+            class norm.</p>`;
+  }
+  return flagged.map((s) => `
+    <div class="signal sig-${s.severity}">
+      <div class="signal-head">
+        <span class="signal-label">${escapeHtml(s.label)}</span>
+        <span class="signal-points">+${s.points}</span>
+      </div>
+      <div class="signal-nums">
+        <b>${escapeHtml(s.value)}</b>
+        ${s.compared ? `<span>${escapeHtml(s.compared)}</span>` : ""}
+      </div>
+      ${s.proof && s.proof.length ? `<ul class="signal-proof">${
+        s.proof.map((x) => `<li>${escapeHtml(x)}</li>`).join("")
+      }</ul>` : ""}
+    </div>`).join("");
+}
+
+function renderAreas(areas) {
+  const rows = Object.entries(areas)
+    .map(([key, v]) => ({ label: AREA_LABELS[key] || key, score: v.score }))
+    .sort((a, b) => b.score - a.score);
+  return MUSE_CHARTS.diverging(rows, {
+    empty: "Not enough work yet to judge.",
+    leftLabel: "needs work", rightLabel: "solid",
+  });
+}
+
+const AREA_LABELS = {
+  specification: "Writing the specification",
+  edge_cases: "Boundary and edge cases",
+  types: "Return types and shapes",
+  examples: "Concrete examples",
+  debugging: "Debugging their own code",
+  reflection: "Explaining their own work",
+  independence: "Working without hints",
+};
+
+function renderTimings(data) {
+  if (!data.timings.length) return `<p class="dash-none">No assignments started.</p>`;
+  return `<div class="attempt-grid">` + data.timings.map((t) => {
+    const parts = [
+      { label: "specification", value: t.specification_seconds || 0,
+        display: MUSE_CHARTS.human(t.specification_seconds), tone: "a" },
+      { label: "coding", value: t.coding_seconds || 0,
+        display: MUSE_CHARTS.human(t.coding_seconds), tone: "b" },
+    ];
+    return `<div class="dash-attempt">
+        <div class="dash-attempt-head">
+          <b>${escapeHtml(t.entry_point || "assignment")}</b>
+          <span>${t.solved ? "solved" : t.submitted ? "submitted, differences open"
+                                                    : t.locked ? "never submitted" : "in progress"}</span>
+        </div>
+        ${MUSE_CHARTS.stack(parts, { empty: "No time recorded." })}
+        ${MUSE_CHARTS.timeline(t.retry_gaps_seconds, {
+            attempts: t.submissions, solved: t.solved,
+            empty: "Never submitted." })}
+      </div>`;
+  }).join("") + `</div>`;
+}
+
+function renderPlan(plan) {
+  if (!plan.length) return `<p class="dash-none">No weak areas stand out right now.</p>`;
+  return plan.map((item) => `
+    <div class="plan">
+      <div class="plan-head">
+        <span class="plan-area">${escapeHtml(item.area_label)}</span>
+        <h4>${escapeHtml(item.title)}</h4>
+      </div>
+      <p class="plan-because">Because: ${escapeHtml(item.because)}</p>
+      ${item.leaning_on ? `<p class="plan-via">${escapeHtml(item.leaning_on)}</p>` : ""}
+      <ol class="plan-steps">${item.steps.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ol>
+    </div>`).join("");
+}
+
+async function renderStudentDashboard(studentId) {
+  const host = $("student-dashboard");
+  host.innerHTML = `<p class="tagline">Loading…</p>`;
+  let data;
+  try {
+    data = await api(`/students/${studentId}/insights?viewer=instructor`);
+  } catch (err) {
+    host.innerHTML = `<p class="tagline">Could not load this student's dashboard.</p>`;
+    return;
+  }
+  const t = data.totals, status = data.status, norms = data.class_norms;
+  const tone = TIER_TONE[status.tier] || "mute";
+
+  const mix = [
+    { label: "about their own code", value: t.questions_own_code, tone: "a" },
+    { label: "about Python", value: t.questions - t.questions_own_code, tone: "b" },
+  ];
+  const diffs = [
+    { label: "drift", value: data.difference_mix.drift || 0, tone: "warn" },
+    { label: "bug", value: data.difference_mix.bug || 0, tone: "bad" },
+    { label: "revision", value: data.difference_mix.revision || 0, tone: "a" },
+  ];
+
+  host.innerHTML = `
+    <div class="dash-status tone-${tone}">
+      <div class="dash-status-main">
+        <span class="tier tier-${status.tier}">${escapeHtml(status.label)}</span>
+        <span class="dash-who">${escapeHtml(data.student.name)}</span>
+      </div>
+      <span class="dash-score">${status.score} flag point${status.score === 1 ? "" : "s"}
+        · needs attention above ${status.thresholds.needs_attention}, at risk from
+        ${status.thresholds.at_risk}</span>
+    </div>
+
+    <div class="dash-grid">
+      <section class="panel half">
+        <h3 class="panel-h">Why, with the rows behind it</h3>
+        <div class="signals">${renderSignals(status)}</div>
+      </section>
+
+      <section class="panel half">
+        <h3 class="panel-h">At a glance</h3>
+        <div class="meter-row">
+          ${MUSE_CHARTS.meter("Questions about own code", t.questions_own_code, t.questions,
+              { caption: `${t.questions_own_code} of ${t.questions}` })}
+          ${MUSE_CHARTS.meter("Differences explained", t.differences_explained, t.differences,
+              { caption: `${t.differences_explained} of ${t.differences}` })}
+          ${MUSE_CHARTS.meter("Exercises solved", t.assignments_solved, t.assignments_started,
+              { caption: `${t.assignments_solved} of ${t.assignments_started}` })}
+        </div>
+      </section>
+
+      <section class="panel wide">
+        <h3 class="panel-h">Where the time went
+          <span class="panel-note">specification vs coding</span></h3>
+        ${renderTimings(data)}
+      </section>
+
+      <section class="panel">
+        <h3 class="panel-h">Against the class</h3>
+        <div class="dash-compare">
+          ${MUSE_CHARTS.compare("Time per exercise", t.mean_total_seconds,
+              norms.total_seconds, { format: MUSE_CHARTS.human })}
+          ${MUSE_CHARTS.compare("Hints taken", t.hints, Math.round(norms.hints * 10) / 10)}
+          ${MUSE_CHARTS.compare("Differences found", t.differences, norms.differences)}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3 class="panel-h">Questions asked</h3>
+        ${MUSE_CHARTS.stack(mix, { empty: "No questions asked yet." })}
+      </section>
+
+      <section class="panel">
+        <h3 class="panel-h">Kinds of difference</h3>
+        ${MUSE_CHARTS.stack(diffs, { empty: "No differences found yet." })}
+      </section>
+
+      <section class="panel wide">
+        <h3 class="panel-h">Strengths and weaknesses
+          <span class="panel-note">from gate re-asks and the kind of difference found</span></h3>
+        ${renderAreas(data.areas)}
+      </section>
+
+      <section class="panel wide">
+        <h3 class="panel-h">A plan, built from the weakest areas</h3>
+        <div class="plan-grid">${renderPlan(data.plan)}</div>
+      </section>
+    </div>`;
 }
 
 async function selectStudent(studentId) {
@@ -119,6 +281,8 @@ async function selectStudent(studentId) {
   document.querySelectorAll("#students [data-student]").forEach((tr) => {
     tr.classList.toggle("selected", Number(tr.dataset.student) === studentId);
   });
+
+  renderStudentDashboard(studentId);
 
   const overview = await api(`/courses/${state.courseId}/students/${studentId}/overview`);
   state.overview = overview;
@@ -214,7 +378,6 @@ async function summarize() {
     $("summary").textContent = error.message;
   } finally {
     $("summarize").disabled = false;
-    loadProviderLog();
   }
 }
 
@@ -460,7 +623,7 @@ async function boot() {
       banner("");
     }
     await loadCourses();
-    await Promise.all([loadClass(), loadProviderLog(), loadStudents(), loadAssignments()]);
+    await Promise.all([loadClass(), loadStudents(), loadAssignments()]);
   } catch (error) {
     banner(error.message, "bad");
   }

@@ -69,6 +69,36 @@ ASSIGNMENTS = [
         },
         "starter_code": "def dedupe(items):\n    # your code here\n    pass\n",
     },
+    {
+        "prompt_text": (
+            "Write a function that tells you whether a whole number is even or "
+            "odd. Two things are yours to decide before you write any code: what "
+            "the function hands back — a true/false answer, or the words "
+            "themselves — and what it does with 0 and with negative numbers."
+        ),
+        "rubric": {
+            # Deliberately neutral: `is_even` would push every student toward
+            # returning a boolean, and the return type is the decision the
+            # assignment is actually about.
+            "entry_point": "even_or_odd",
+            "items": [
+                {"id": "goal", "priority": 1, "field": "goal",
+                 "text": "must state in one sentence what the function does"},
+                {"id": "inputs", "priority": 2, "field": "inputs",
+                 "text": "must name the input and its type"},
+                {"id": "outputs", "priority": 3, "field": "outputs",
+                 "text": "must state what is returned and its type — true/false, "
+                         "or the words \"even\" and \"odd\""},
+                {"id": "zero", "priority": 4, "field": None,
+                 "text": "must state what the function does when the number is 0"},
+                {"id": "negative", "priority": 5, "field": None,
+                 "text": "must state what the function does for negative numbers"},
+                {"id": "examples", "priority": 6, "field": "examples",
+                 "text": "must give at least one concrete input/output example"},
+            ],
+        },
+        "starter_code": "def even_or_odd(n):\n    # your code here\n    pass\n",
+    },
 ]
 
 
@@ -79,17 +109,30 @@ def seed(reset: bool = False) -> None:
 
     db = SessionLocal()
     try:
-        if db.query(Student).count() == 0:
-            db.add_all([Student(name=n, course_id=COURSE_ID, cohort=c) for n, c in STUDENTS])
-        if db.query(Assignment).count() == 0:
-            db.add_all([Assignment(course_id=COURSE_ID, **a) for a in ASSIGNMENTS])
+        known = {s.name for s in db.query(Student).filter(Student.course_id == COURSE_ID).all()}
+        missing = [(n, c) for n, c in STUDENTS if n not in known]
+        if missing:
+            db.add_all([Student(name=n, course_id=COURSE_ID, cohort=c) for n, c in missing])
+        # Insert only what's missing, matched on the rubric's entry_point, so
+        # adding an assignment doesn't mean throwing away everyone's work.
+        # Editing an EXISTING assignment still needs --reset: overwriting a
+        # rubric in place would silently invalidate specifications already
+        # locked against it.
+        existing = {
+            (a.rubric or {}).get("entry_point")
+            for a in db.query(Assignment).filter(Assignment.course_id == COURSE_ID).all()
+        }
+        added = [a for a in ASSIGNMENTS if a["rubric"]["entry_point"] not in existing]
+        if added:
+            db.add_all([Assignment(course_id=COURSE_ID, **a) for a in added])
         if db.get(CourseSettings, COURSE_ID) is None:
             # Default: student-facing only. Flip to instructor_opt_in explicitly.
             db.add(CourseSettings(course_id=COURSE_ID,
                                   dependency_profile_visibility="student_only"))
         db.commit()
         print(f"seeded: {db.query(Student).count()} students, "
-              f"{db.query(Assignment).count()} assignments in {COURSE_ID}")
+              f"{db.query(Assignment).count()} assignments in {COURSE_ID}"
+              + (f" (added {len(added)} new assignment(s))" if added else ""))
     finally:
         db.close()
 

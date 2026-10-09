@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>MUSE Internals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+
+<style>
+:root{
+  --bg:#f5f7f9; --panel:#ffffff; --panel-2:#eef2f7; --line:#dbe1ea; --line-soft:#e9edf3;
+  --ink:#131821; --ink-dim:#4a5465; --ink-faint:#78829a;
+  --accent:#2b56c4; --accent-soft:#e6ecfd; --accent-line:#bccdf7;
+  --py:#1f7a52; --py-bg:#e4f3eb; --py-line:#b6ddc8;
+  --llm:#8a4ba8; --llm-bg:#f3ebf8; --llm-line:#ddc6ea;
+  --warn:#9a6a10; --warn-bg:#fbf2dd; --bad:#b3253f; --bad-bg:#fbe9ed;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --panel:#161a21; --panel-2:#1b212a; --line:#2a323e; --line-soft:#1f2530;
+    --ink:#e6e9ef; --ink-dim:#99a2b2; --ink-faint:#6b7484;
+    --accent:#7aa2f7; --accent-soft:#182031; --accent-line:#3d5a9e;
+    --py:#7fd18c; --py-bg:#15241a; --py-line:#2d4a34;
+    --llm:#c79be0; --llm-bg:#241b2c; --llm-line:#443354;
+    --warn:#e0af68; --warn-bg:#2a2113; --bad:#f7768e; --bad-bg:#2c1720;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --panel:#161a21; --panel-2:#1b212a; --line:#2a323e; --line-soft:#1f2530;
+  --ink:#e6e9ef; --ink-dim:#99a2b2; --ink-faint:#6b7484;
+  --accent:#7aa2f7; --accent-soft:#182031; --accent-line:#3d5a9e;
+  --py:#7fd18c; --py-bg:#15241a; --py-line:#2d4a34;
+  --llm:#c79be0; --llm-bg:#241b2c; --llm-line:#443354;
+  --warn:#e0af68; --warn-bg:#2a2113; --bad:#f7768e; --bad-bg:#2c1720;
+}
+
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+     font-size:15.5px; line-height:1.65; -webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--serif); margin:0; line-height:1.22; text-wrap:balance}
+p{margin:0}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+.wrap{max-width:840px; margin-inline:auto; padding-inline:clamp(16px,4vw,36px);
+      padding-block:clamp(28px,5vw,52px)}
+
+/* head */
+.top{border-bottom:1px solid var(--line); padding-bottom:24px; margin-bottom:30px}
+.kicker{font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase;
+        color:var(--accent); margin-bottom:11px}
+h1{font-size:clamp(28px,4.6vw,40px); letter-spacing:-.015em}
+.sub{margin-top:13px; color:var(--ink-dim); max-width:62ch}
+
+/* legend: the one idea the whole document hangs on */
+.legend{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line);
+        border:1px solid var(--line); border-radius:10px; overflow:hidden; margin:26px 0 38px}
+@media(max-width:620px){.legend{grid-template-columns:1fr}}
+.legend div{background:var(--panel); padding:15px 17px}
+.legend .t{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+           margin-bottom:7px; display:flex; align-items:center; gap:8px}
+.legend p{font-size:14px; color:var(--ink-dim)}
+.dot{width:9px; height:9px; border-radius:2px; display:inline-block}
+
+/* toc */
+.toc{background:var(--panel); border:1px solid var(--line); border-radius:10px;
+     padding:18px 22px; margin-bottom:44px}
+.toc h2{font-family:var(--sans); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+        color:var(--ink-faint); font-weight:600; margin-bottom:12px}
+.toc ol{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:5px; font-size:14.5px}
+.toc a{text-decoration:none}
+.toc a:hover{text-decoration:underline}
+
+/* sections */
+section{margin-bottom:52px; scroll-margin-top:16px}
+.sec-head{border-top:2px solid var(--accent); padding-top:14px; margin-bottom:20px}
+.sec-n{font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+       color:var(--accent); display:block; margin-bottom:8px}
+section h2{font-size:clamp(21px,3vw,27px)}
+.sec-sub{margin-top:9px; color:var(--ink-dim); max-width:64ch}
+
+h3{font-size:17px; margin:30px 0 11px}
+section p + p{margin-top:12px}
+
+/* step list: the request flow */
+.flow{counter-reset:step; list-style:none; margin:18px 0 0; padding:0;
+      display:flex; flex-direction:column; gap:14px}
+.flow > li{counter-increment:step; display:grid; grid-template-columns:26px 1fr; gap:13px;
+           align-items:start}
+.flow > li::before{
+  content:counter(step); font-family:var(--mono); font-size:11px; font-weight:600;
+  color:var(--ink-faint); background:var(--panel-2); border:1px solid var(--line);
+  border-radius:5px; width:26px; height:22px; display:grid; place-items:center; margin-top:2px;
+}
+.flow .body{min-width:0}
+.flow .body > p{font-size:14.8px}
+
+/* the py / llm markers */
+.tag{font-family:var(--mono); font-size:10px; letter-spacing:.11em; text-transform:uppercase;
+     padding:2px 7px; border-radius:4px; white-space:nowrap; margin-right:8px;
+     border:1px solid; vertical-align:1px}
+.tag.py{color:var(--py); background:var(--py-bg); border-color:var(--py-line)}
+.tag.llm{color:var(--llm); background:var(--llm-bg); border-color:var(--llm-line)}
+
+code{font-family:var(--mono); font-size:.87em; background:var(--panel-2);
+     border:1px solid var(--line-soft); padding:1px 5px; border-radius:4px; color:var(--ink)}
+pre{margin:16px 0 0; padding:14px 16px; overflow-x:auto; border-radius:9px;
+    background:var(--panel); border:1px solid var(--line);
+    font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--ink-dim)}
+pre code{background:none; border:0; padding:0; font-size:inherit}
+pre .c{color:var(--ink-faint)}
+pre .k{color:var(--accent)}
+pre .s{color:var(--py)}
+
+/* endpoint table */
+.routes{border:1px solid var(--line); border-radius:9px; overflow:hidden; margin-top:18px;
+        background:var(--panel)}
+.routes table{width:100%; border-collapse:collapse; font-size:13.5px; min-width:480px}
+.routes th{font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+           color:var(--ink-faint); text-align:left; font-weight:500; padding:10px 14px;
+           border-bottom:1px solid var(--line); background:var(--panel-2)}
+.routes td{padding:9px 14px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+.routes tr:last-child td{border-bottom:0}
+.routes td.m{font-family:var(--mono); font-size:11px; color:var(--accent); white-space:nowrap}
+.routes td.p{font-family:var(--mono); font-size:12px; color:var(--ink)}
+.routes td.d{color:var(--ink-dim)}
+.scroll{overflow-x:auto}
+
+/* callouts */
+.box{border-radius:9px; padding:14px 17px; margin-top:18px; font-size:14.5px}
+.box .t{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+        display:block; margin-bottom:7px; font-weight:500}
+.box.bug{background:var(--bad-bg); border:1px solid color-mix(in srgb,var(--bad) 30%,transparent)}
+.box.bug .t{color:var(--bad)}
+.box.why{background:var(--accent-soft); border:1px solid var(--accent-line)}
+.box.why .t{color:var(--accent)}
+.box.warn{background:var(--warn-bg); border:1px solid color-mix(in srgb,var(--warn) 32%,transparent)}
+.box.warn .t{color:var(--warn)}
+.box p + p{margin-top:10px}
+
+/* rows written */
+.writes{font-family:var(--mono); font-size:12.5px; color:var(--ink-dim); margin-top:16px;
+        border-left:2px solid var(--line); padding-left:14px; line-height:1.9}
+.writes b{color:var(--ink); font-weight:500}
+
+footer{border-top:1px solid var(--line); padding-top:20px; margin-top:12px;
+       font-family:var(--mono); font-size:11.5px; color:var(--ink-faint)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <p class="kicker">Technical walkthrough</p>
+  <h1>MUSE Internals</h1>
+  <p class="sub">
+    How the system is built, one screen at a time: the endpoints each screen
+    calls, what happens server side in order, which decisions are made in Python
+    and which are asked of a model, and what ends up in the database.
+  </p>
+</div>
+
+<div class="legend">
+  <div>
+    <div class="t" style="color:var(--py)"><span class="dot" style="background:var(--py)"></span>Decided in Python</div>
+    <p>Deterministic. No model is consulted and no prompt can change the outcome.
+       Everything a student's progress depends on lives here.</p>
+  </div>
+  <div>
+    <div class="t" style="color:var(--llm)"><span class="dot" style="background:var(--llm)"></span>Asked of a model</div>
+    <p>Phrasing, classification, judgement calls. Every one of these is validated
+       in Python before it is trusted or stored.</p>
+  </div>
+</div>
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#shape">The shape of the application</a></li>
+    <li><a href="#data">The data model</a></li>
+    <li><a href="#llm">The LLM layer, which every screen goes through</a></li>
+    <li><a href="#gate">Screen 1 · Specification gate</a></li>
+    <li><a href="#tutor">Screen 2 · Guided implementation</a></li>
+    <li><a href="#reflect">Screen 3 · Reflection</a></li>
+    <li><a href="#dash">Screen 4 · Instructor dashboard</a></li>
+    <li><a href="#sandbox">The sandbox</a></li>
+    <li><a href="#test">Testing without a network</a></li>
+  </ol>
+</div>
+
+<!-- ───────────────────────────────────────────────────────────── 1 -->
+<section id="shape">
+  <div class="sec-head"><span class="sec-n">01</span><h2>The shape of the application</h2></div>
+  <p class="sec-sub">
+    One FastAPI process, two HTML pages, no build step and no frontend framework.
+  </p>
+
+  <p>
+    The server is FastAPI with SQLAlchemy 2.0 (typed <code>Mapped</code> /
+    <code>mapped_column</code>) and Pydantic request bodies. Four routers mount
+    under <code>/api</code>: specifications, tutoring, reflection, dashboard. Two
+    routes serve HTML, <code>/</code> for the student and <code>/instructor</code>
+    for staff, and <code>/static</code> and <code>/pics</code> are mounted as
+    static directories.
+  </p>
+  <p>
+    The frontend is two hand written files, <code>frontend/js/app.js</code> and
+    <code>instructor.js</code>, talking to the same JSON API. The only external
+    dependency on the page is the Monaco editor loader. Phase navigation is a
+    class toggle on three <code>&lt;section&gt;</code> elements, not a router.
+  </p>
+
+  <h3>Errors are mapped once, centrally</h3>
+  <p>
+    Module code raises domain exceptions and never builds an HTTP response.
+    <code>main.py</code> registers handlers that turn each into a status and a
+    message a student can read:
+  </p>
+<pre><code><span class="c"># app/main.py</span>
+ProviderExhaustedError    <span class="k">→</span> 503  both providers failed
+MalformedJSONError        <span class="k">→</span> 502  a provider broke the JSON contract
+NoProviderConfiguredError <span class="k">→</span> 503  no API key and no offline stub
+ProfileNotVisible         <span class="k">→</span> 403  course has not opted in
+ValueError                <span class="k">→</span> 400  a rule the student hit
+LookupError               <span class="k">→</span> 404</code></pre>
+
+  <div class="box why"><span class="t">Why it matters</span>
+    <p>Every module becomes directly testable without a TestClient, and the
+    student never sees a stack trace or a bare 500. <code>ValueError</code>
+    mapping to 400 is what lets business rules read as plain
+    <code>raise ValueError("...")</code> inside the modules.</p>
+  </div>
+
+  <h3>Storage</h3>
+  <p>
+    SQLite by default, Postgres by changing one environment variable. The JSON
+    columns are declared once as a variant so the same models work on both:
+  </p>
+<pre><code><span class="c"># app/db.py</span>
+JSONColumn = JSON().with_variant(JSONB(), <span class="s">"postgresql"</span>)</code></pre>
+  <p>
+    On SQLite three pragmas are set per connection: <code>journal_mode=WAL</code>,
+    <code>synchronous=NORMAL</code> and <code>busy_timeout=5000</code>. That last
+    one is not cosmetic, see the call logger below.
+  </p>
+  <p>
+    <code>_add_missing_columns()</code> runs at startup and <code>ALTER</code>s in
+    columns the models have gained since the file was created, so adding a field
+    during development does not mean dropping the database and losing every
+    session.
+  </p>
+</section>
+
+<!-- ───────────────────────────────────────────────────────────── 2 -->
+<section id="data">
+  <div class="sec-head"><span class="sec-n">02</span><h2>The data model</h2></div>
+  <p class="sec-sub">
+    Nine tables. The important design decision is that nothing is overwritten:
+    the record of how a student worked <em>is</em> the product.
+  </p>
+
+<pre><code>Student ──┐
+          ├─ Specification (versioned, one row per draft)
+Assignment┘        │
+                   ├─ CodeSnapshot   every autosave + the final one
+                   ├─ Interaction    every tutor exchange
+                   └─ DiffResult     every difference found at submission
+                            ▲
+          GateTurn ─────────┘ (keyed on assignment+student, not spec)
+          LLMCall             every provider call, written off-request
+          CourseSettings      dependency-profile visibility per course</code></pre>
+
+  <h3>Specification is append only</h3>
+  <p>
+    Each clarification round writes a <em>new</em> row with
+    <code>version = previous + 1</code>, carrying forward
+    <code>gap_ask_counts</code>, <code>confirmed_gaps</code>,
+    <code>dont_know_counts</code> and <code>last_question</code>. Locking sets
+    <code>status = "locked"</code> on the newest row. Drift is measured against
+    that frozen content, and the version history is what the instructor dashboard
+    replays.
+  </p>
+
+  <div class="box why"><span class="t">Why GateTurn is keyed differently</span>
+    <p>Every other child table points at <code>specification_id</code>. GateTurn
+    points at <code>assignment_id</code> + <code>student_id</code>, because the
+    gate writes a new Specification version on almost every turn. Keying the
+    transcript to a specification would scatter one conversation across fifteen
+    rows with no way to read it back in order.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────────────────────────────────────────── 3 -->
+<section id="llm">
+  <div class="sec-head"><span class="sec-n">03</span><h2>The LLM layer</h2></div>
+  <p class="sec-sub">
+    One function. Every AI call in the system goes through it, which is what
+    makes failover, logging and the offline mode possible at all.
+  </p>
+
+<pre><code><span class="c"># app/llm/client.py — the only entry point</span>
+generate_structured(system_prompt, user_payload, schema_hint,
+                    *, task, tier, temperature=None) -&gt; dict</code></pre>
+
+  <p>
+    <code>schema_hint</code> is appended to the system prompt along with
+    "respond with ONLY valid JSON", so both providers are asked for the same
+    shape. Prompts live in <code>app/llm/prompts.py</code> as
+    <code>(system, schema)</code> tuples: twelve of them, one per task.
+  </p>
+
+  <h3>Two tiers</h3>
+  <p>
+    <code>CLASSIFICATION</code> tasks (extract fields, pick the next gap, classify
+    a question) go to a small fast model. <code>DIALOGUE</code> tasks (anything a
+    student reads) go to a larger one. Cost and latency follow the distinction
+    between a label and a sentence a human will judge.
+  </p>
+
+  <h3>Failover, and the circuit breaker</h3>
+  <ol class="flow">
+    <li><div class="body"><p>Build the provider order: primary first
+      (<code>MUSE_PRIMARY</code>, default Mistral), then the other.</p></div></li>
+    <li><div class="body"><p>Drop any provider whose breaker is open, <em>unless
+      that leaves nothing</em>, in which case try it anyway.</p></div></li>
+    <li><div class="body"><p>Only the primary gets retries. The fallback gets one
+      attempt, because the fallback <em>is</em> the retry.</p></div></li>
+    <li><div class="body"><p>On a rate limit: record it, open that provider's
+      breaker, and break out immediately. No sleep, no retry.</p></div></li>
+    <li><div class="body"><p>On a 5xx or timeout: sleep
+      <code>BACKOFF × (attempt+1)</code> and retry.</p></div></li>
+    <li><div class="body"><p>On malformed JSON: log it and <strong>raise</strong>
+      rather than failing over.</p></div></li>
+  </ol>
+
+  <div class="box bug"><span class="t">A real bug this fixed</span>
+    <p>The dashboard showed every one of 114 Mistral calls returning 429. Each one
+    was costing ~530ms to fail, then a 1500ms sleep, then another ~530ms, before
+    Groq was even tried. Every call in the app paid that, and the whole thing felt
+    broken rather than slow.</p>
+    <p>The breaker took mean call latency from about <strong>4.0s to about
+    1.5s</strong>. The fix was not a faster model, it was noticing that we were
+    politely retrying a provider that had already said no.</p>
+  </div>
+
+  <div class="box why"><span class="t">Why malformed JSON raises instead of failing over</span>
+    <p>A provider that answers but breaks the schema is a prompt regression, not an
+    outage. Failing over would silently paper over it and we would ship a broken
+    prompt that "works" because the fallback happens to cope. Raising makes it
+    visible in the ops log the moment it starts.</p>
+  </div>
+
+  <h3>Call logging, off the request path</h3>
+  <p>
+    Every call emits a <code>CallRecord</code> to registered sinks.
+    <code>main.py</code> registers one that pushes onto a queue drained by a
+    background thread with its own session.
+  </p>
+  <div class="box bug"><span class="t">Why a thread and not a plain insert</span>
+    <p>The first version wrote the <code>llm_calls</code> row inside the request's
+    own transaction. SQLite gave <em>database is locked</em> under any concurrency,
+    because the logger had opened a second write transaction while the request
+    still held one. Moving the writer off-request plus
+    <code>busy_timeout=5000</code> fixed it. Registration is idempotent, since the
+    first version appended the same sink on every reload and produced duplicate
+    rows.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────────────────────────────────────────── 4 -->
+<section id="gate">
+  <div class="sec-head"><span class="sec-n">04</span><h2>Screen 1 · Specification gate</h2></div>
+  <p class="sec-sub">
+    Chat on the left, rubric and the growing specification on the right. The
+    editor is unreachable until every rubric item is answered.
+  </p>
+
+  <div class="scroll"><div class="routes"><table>
+    <thead><tr><th>Method</th><th>Path</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td class="m">POST</td><td class="p">/api/assignments/{id}/specification</td><td class="d">one dialogue turn</td></tr>
+      <tr><td class="m">GET</td><td class="p">/api/assignments/{id}/specification</td><td class="d">current state + version history</td></tr>
+      <tr><td class="m">POST</td><td class="p">…/specification/lock</td><td class="d">"my answer stands" on one gap</td></tr>
+      <tr><td class="m">POST</td><td class="p">…/specification/dont-know</td><td class="d">explain the question, offer options</td></tr>
+    </tbody>
+  </table></div></div>
+
+  <h3>One turn, in order</h3>
+  <ol class="flow">
+    <li><div class="body"><p><span class="tag llm">llm</span><code>extract_fields</code>
+      sends the student's message, the current specification and the question they
+      were answering. The last of those matters: without it a reply like "an empty
+      list" is stored bare, having lost the condition it applies to.</p></div></li>
+
+    <li><div class="body"><p><span class="tag py">py</span><code>_guard_extraction()</code>
+      throws away anything the model did not get from the student.</p>
+<pre><code><span class="c"># an input needs the student to have named it, or to have</span>
+<span class="c"># said the function *takes* something</span>
+<span class="k">if</span> not named <span class="k">and</span> not _INPUT_SIGNAL.search(message):
+    <span class="k">continue</span>
+
+<span class="c"># an output needs a verb: returns / gives / produces / -&gt;</span>
+<span class="k">if</span> not _RETURN_SIGNAL.search(message):
+    <span class="k">continue</span>
+
+<span class="c"># an example's two sides must each appear in the source text,</span>
+<span class="c"># checked separately: "n=3 -&gt; [0,1,1]" has the arrow between</span>
+<span class="k">if</span> any(side <span class="k">and</span> side not <span class="k">in</span> flat <span class="k">for</span> side <span class="k">in</span> sides):
+    <span class="k">continue</span></code></pre>
+      </div></li>
+
+    <li><div class="body"><p><span class="tag py">py</span><code>_meaningful_change()</code>
+      decides whether this turn produced a new version. If so, <code>_new_version()</code>
+      writes one, carrying the counters forward.</p></div></li>
+
+    <li><div class="body"><p><span class="tag py">py</span><code>next_gap()</code>
+      runs the <strong>structural floor first</strong>. Items mapped to a
+      specification field are judged by <code>field_satisfied()</code> with no
+      model vote at all:</p>
+<pre><code><span class="k">if</span> field == <span class="s">"goal"</span>:    <span class="k">return</span> len(str(value).split()) &gt;= 3
+<span class="k">if</span> field == <span class="s">"inputs"</span>:  <span class="k">return</span> any(i.get(<span class="s">"name"</span>) <span class="k">and</span> i.get(<span class="s">"type"</span>) …)
+<span class="k">if</span> field == <span class="s">"outputs"</span>: <span class="k">return</span> any(o.get(<span class="s">"type"</span>) …)
+<span class="k">if</span> field == <span class="s">"examples"</span>: <span class="k">return</span> any(input <span class="k">and</span> output …)</code></pre>
+      <p style="margin-top:10px"><span class="tag llm">llm</span>Only semantic items
+      ("what happens when n is 0") reach the model, and its answer is checked
+      against the rubric before it is trusted.</p></div></li>
+
+    <li><div class="body"><p><span class="tag llm">llm</span><code>generate_clarifying_question()</code>
+      phrases the question. <span class="tag py">py</span>Then
+      <code>_question_addresses_gap()</code> checks the question is actually about
+      the gap being scored, and swaps in a deterministic one built from the
+      starter code signature if it is not.</p></div></li>
+
+    <li><div class="body"><p><span class="tag py">py</span>Write a
+      <code>GateTurn</code>, bump <code>gap_ask_counts[gap_id]</code>, commit,
+      return the payload.</p></div></li>
+  </ol>
+
+  <div class="writes">
+    writes: <b>Specification</b> (new version, when the turn changed anything) · <b>GateTurn</b> (always)
+  </div>
+
+  <div class="box bug"><span class="t">Three bugs that shaped this screen</span>
+    <p><strong>The first three items ticked themselves.</strong> One vague opening
+    sentence and goal, inputs and outputs were all marked answered, because the
+    model had filled them in from the assignment text. That is the exact failure
+    the rubric exists to prevent. Hence the extraction guard.</p>
+    <p><strong>An item matched on its own id.</strong> <code>required_field()</code>
+    was matching the substring <code>input</code> inside the rubric id
+    <code>empty_input</code>, so a question about edge case behaviour was treated
+    as the inputs field and ticked off as soon as inputs were filled. Fixed by
+    matching on the item's <em>text</em> only, with word boundaries, plus a
+    semantic marker regex that catches conditional phrasing, plus an explicit
+    <code>"field"</code> key in the seed rubrics.</p>
+    <p><strong>The question did not match the gap.</strong> The gap was
+    <code>goal</code> but the model asked about input and output types. The
+    student answered what was on screen, correctly, and was told it did not settle
+    it, because it was scored against a gap the question had nothing to do with.
+    That is the single most enraging way this screen can fail. Hence step 5.</p>
+  </div>
+
+  <h3>"I don't know" and "my answer stands"</h3>
+  <p>
+    <code>gap_kind_for()</code> classifies the gap as <em>type</em>,
+    <em>example</em>, <em>statement</em> or <em>decision</em>, and that decides
+    what the button may legitimately offer. A decision has real alternatives. An
+    example has to come from the student, so the most that can be offered is a
+    shape to fill in. A goal has nothing to offer at all, so options are forced
+    empty in code.
+  </p>
+  <div class="box bug"><span class="t">The one that caused the most swearing</span>
+    <p>Clicking an option the system itself had offered was rejected as wrong. The
+    offered answer was "It takes a list of integers", but the rubric wanted a
+    <em>name</em> and a type. <code>signature_params()</code> now parses
+    <code>def dedupe(items)</code> out of the starter code, and
+    <code>_normalise_options()</code> appends "called <code>items</code>" to any
+    option for a rubric item that asks for a name. The system cannot offer an
+    answer it will then mark wrong.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────────────────────────────────────────── 5 -->
+<section id="tutor">
+  <div class="sec-head"><span class="sec-n">05</span><h2>Screen 2 · Guided implementation</h2></div>
+  <p class="sec-sub">
+    Monaco on the left, tutor chat on the right, the locked specification
+    underneath it for reference.
+  </p>
+
+  <div class="scroll"><div class="routes"><table>
+    <thead><tr><th>Method</th><th>Path</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td class="m">POST</td><td class="p">/api/specifications/{id}/interactions</td><td class="d">ask the tutor</td></tr>
+      <tr><td class="m">POST</td><td class="p">…/interactions/escape-hatch</td><td class="d">request a direct hint</td></tr>
+      <tr><td class="m">POST</td><td class="p">…/snapshots</td><td class="d">autosave</td></tr>
+      <tr><td class="m">GET</td><td class="p">…/snapshots/latest</td><td class="d">restore on reload</td></tr>
+    </tbody>
+  </table></div></div>
+
+  <h3>The editor</h3>
+  <p>
+    Monaco with every suggestion mechanism switched off. Six settings, because
+    turning off one of them leaves the others happily completing:
+  </p>
+<pre><code>quickSuggestions: <span class="k">false</span>,          suggestOnTriggerCharacters: <span class="k">false</span>,
+wordBasedSuggestions: <span class="s">"off"</span>,      acceptSuggestionOnEnter: <span class="s">"off"</span>,
+tabCompletion: <span class="s">"off"</span>,             inlineSuggest: { enabled: <span class="k">false</span> }</code></pre>
+  <p>
+    A plain <code>&lt;textarea&gt;</code> fallback takes over if the CDN loader
+    fails, so a flaky network downgrades the editor rather than ending the session.
+  </p>
+
+  <h3>One tutor message, in order</h3>
+  <ol class="flow">
+    <li><div class="body"><p><span class="tag py">py</span>Refuse unless the
+      specification is locked. The tutor does not exist before phase 2.</p></div></li>
+    <li><div class="body"><p><span class="tag py">py</span>Save a snapshot if the
+      code changed, and compute a <code>unified_diff</code> against the previous
+      one. The classifier sees the <em>diff</em>, not the whole file.</p></div></li>
+    <li><div class="body"><p><span class="tag llm">llm</span><code>classify()</code>
+      returns <code>factual</code> or <code>problem_solving</code> with a
+      confidence and a reason.</p></div></li>
+    <li><div class="body"><p><span class="tag py">py</span><code>deterministic_override()</code>
+      extracts identifiers from the student's actual code and forces
+      <code>problem_solving</code> if the message names one. "What does
+      <code>enumerate</code> do" is factual; "what does <code>my_result</code> do"
+      cannot be, whatever the classifier says.</p></div></li>
+    <li><div class="body"><p><span class="tag llm">llm</span>Factual questions get
+      <code>answer_factual()</code>, which can return <code>deflect: true</code> if
+      the question turns out to be answerable only from the student's own code. The
+      message is then re-routed as problem solving.</p></div></li>
+    <li><div class="body"><p><span class="tag llm">llm</span>Problem solving gets
+      <code>socratic_question()</code>, which receives the previous counter
+      questions in this thread so it does not ask the same thing twice.</p></div></li>
+    <li><div class="body"><p><span class="tag py">py</span>Write the
+      <code>Interaction</code> with its classification, confidence, reasoning, mode
+      and <code>thread_round</code>. The escape hatch unlocks once
+      <code>thread_round &gt;= TUTOR_ESCAPE_HATCH_ROUNDS</code>.</p></div></li>
+  </ol>
+
+  <div class="writes">
+    writes: <b>CodeSnapshot</b> (if changed) · <b>Interaction</b> (always, with <code>assist_cost=1</code> for a hint)
+  </div>
+
+  <div class="box why"><span class="t">Two safety nets around one classifier</span>
+    <p>The override before and the deflect after both exist because a small
+    classification model will confidently call "why is my loop wrong" a factual
+    question. One model call, two deterministic chances to catch it, in opposite
+    directions.</p>
+  </div>
+
+  <h3>On submit, a diagnostic thread per failure</h3>
+  <p>
+    Submitting runs the reflection pipeline but the student stays on this screen:
+    each failing case gets a <code>diagnostic_question</code>, already computed, and
+    a reply box. <code>discuss()</code> continues that thread,
+    <code>DiffResult.id</code> keyed via <code>Interaction.diff_result_id</code>.
+    There is a test that fails if a generated diagnostic question contains a
+    giveaway token from the solution.
+  </p>
+</section>
+
+<!-- ───────────────────────────────────────────────────────────── 6 -->
+<section id="reflect">
+  <div class="sec-head"><span class="sec-n">06</span><h2>Screen 3 · Reflection</h2></div>
+  <p class="sec-sub">
+    Differences on the left, the behavioural diff and session statistics on the
+    right. Nothing is accepted until every difference has an explanation.
+  </p>
+
+  <div class="scroll"><div class="routes"><table>
+    <thead><tr><th>Method</th><th>Path</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td class="m">POST</td><td class="p">/api/specifications/{id}/submit</td><td class="d">run the pipeline</td></tr>
+      <tr><td class="m">POST</td><td class="p">/api/diff-results/{id}/explanation</td><td class="d">record the student's words</td></tr>
+      <tr><td class="m">POST</td><td class="p">/api/diff-results/{id}/discuss</td><td class="d">continue a diagnostic thread</td></tr>
+      <tr><td class="m">GET</td><td class="p">…/session-stats</td><td class="d">counts and transcript, no AI</td></tr>
+      <tr><td class="m">POST</td><td class="p">…/finalize</td><td class="d">accept the submission</td></tr>
+    </tbody>
+  </table></div></div>
+
+  <h3>Submission, in order</h3>
+  <ol class="flow">
+    <li><div class="body"><p><span class="tag py">py</span>Refuse unless the spec is
+      locked and the rubric declares an <code>entry_point</code>.</p></div></li>
+    <li><div class="body"><p><span class="tag py">py</span><strong>Refuse if the
+      specification declares no examples and no edge cases.</strong> There would be
+      nothing to run the code against, and returning a clean bill of health would be
+      a lie: the code was never checked against anything.</p></div></li>
+    <li><div class="body"><p><span class="tag py">py</span>Delete the previous
+      <code>DiffResult</code> rows. Re-submitting replaces the verdict rather than
+      stacking a second one on top.</p></div></li>
+    <li><div class="body"><p><span class="tag llm">llm</span><code>materialize_edge_cases()</code>
+      turns prose edge cases ("an empty list returns an empty list") into runnable
+      calls (<code>items=[]</code> with expected <code>[]</code>).</p></div></li>
+    <li><div class="body"><p><span class="tag py">py</span>Run every declared case
+      through the sandbox and build a row per case: input, expected, actual, type,
+      error, pass or fail.</p></div></li>
+    <li><div class="body"><p><span class="tag llm">llm</span>For each failure,
+      <code>classify_discrepancy()</code> gets the case <em>and the student's
+      interaction log</em>, and returns drift, revision or bug with an evidence
+      quote.</p></div></li>
+    <li><div class="body"><p><span class="tag llm">llm</span>Pre-compute the opening
+      <code>diagnostic_question</code> so the card is ready before the student reads
+      it.</p></div></li>
+  </ol>
+
+  <div class="writes">
+    writes: <b>CodeSnapshot</b> (<code>is_final=True</code>) · <b>DiffResult</b> per failure, with <code>test_detail</code> as JSON
+  </div>
+
+  <div class="box why"><span class="t">Why "revision" needs a quote</span>
+    <p>The three categories are not equally easy to assign. Drift and bug can be
+    read off the test result. Revision is a claim about <em>intent</em>, and the
+    prompt forbids it without an actual quote from the interaction log. Otherwise
+    the model gives everyone the benefit of the doubt, and "they probably meant to"
+    is exactly the judgement an AI should not be making about a student's work.</p>
+  </div>
+
+  <div class="box bug"><span class="t">The grader bug that was worse than a wrong answer</span>
+    <p>A student's specification declared the example <code>1,1,2 → 1,2</code>. The
+    runner parsed <code>1,1,2</code> as <em>three positional arguments</em> and
+    called <code>dedupe(1, 1, 2)</code>, which raises TypeError. Separately,
+    <code>1,2</code> literal-evals to the tuple <code>(1, 2)</code>, which never
+    equals the list <code>[1, 2]</code>. The failure message read
+    <code>expected '1,2', got '1,2'</code>.</p>
+    <p>She rewrote a correct function into <code>def dedupe(*args, items=None)</code>
+    returning <code>",".join(...)</code> to satisfy the harness. A tool whose entire
+    purpose is "make the code match the specification" had pushed a student into
+    deforming correct code to fit a broken grader. Three fixes: arity aware argument
+    parsing from the function's own signature, list/tuple leniency in the
+    comparison, and a failure message that names the types when the two values read
+    alike.</p>
+  </div>
+
+  <h3>Session statistics</h3>
+  <p>
+    <code>app/modules/stats.py</code> makes <strong>no LLM calls at all</strong>.
+    It counts specification versions, gate turns, questions by classification,
+    hints, cases run and failed, and merges <code>GateTurn</code> and
+    <code>Interaction</code> rows into one time ordered transcript. A number a
+    student is shown about themselves should be a query, not a generation.
+  </p>
+</section>
+
+<!-- ───────────────────────────────────────────────────────────── 7 -->
+<section id="dash">
+  <div class="sec-head"><span class="sec-n">07</span><h2>Screen 4 · Instructor dashboard</h2></div>
+  <p class="sec-sub">
+    Class tiles, the divergence table, the provider log, the student list, and one
+    student in depth.
+  </p>
+
+  <div class="scroll"><div class="routes"><table>
+    <thead><tr><th>Method</th><th>Path</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td class="m">GET</td><td class="p">/api/courses/{id}/analytics/class-patterns</td><td class="d">the divergence table</td></tr>
+      <tr><td class="m">GET</td><td class="p">/api/courses/{id}/students/{sid}/overview</td><td class="d">one student, everything</td></tr>
+      <tr><td class="m">GET</td><td class="p">/api/students/{id}/narrative-summary</td><td class="d">the only AI call here</td></tr>
+      <tr><td class="m">GET</td><td class="p">/api/students/{id}/dependency-profile</td><td class="d">403 unless opted in</td></tr>
+      <tr><td class="m">GET</td><td class="p">/api/ops/llm-calls</td><td class="d">provider log + breaker state</td></tr>
+    </tbody>
+  </table></div></div>
+
+  <p>
+    <span class="tag py">py</span><code>class_patterns()</code> is a single
+    <code>GROUP BY</code> over <code>DiffResult</code> joined to
+    <code>Specification</code> and <code>Student</code>, counting distinct students
+    per (spec item, category) pair. No model, no cache, no inference. That is what
+    makes the page fast and what makes it give the same answer twice.
+  </p>
+
+<pre><code>select(DiffResult.spec_item_key, DiffResult.category,
+       func.count(func.distinct(Specification.student_id)),
+       func.count(DiffResult.id))
+  .join(Specification).join(Student)
+  .where(Student.course_id == course_id)
+  .group_by(DiffResult.spec_item_key, DiffResult.category)</code></pre>
+
+  <p>
+    <span class="tag llm">llm</span><code>narrative_summary()</code> is the only
+    model call on this screen, and it fires on a button. It is scoped to one
+    assignment deliberately: without that scope, specifications across every
+    assignment sort together and <code>specs[-1]</code> silently lands on the wrong
+    one, producing a summary that quotes one assignment's prompt while grounding
+    itself in another's differences.
+  </p>
+
+  <div class="box warn"><span class="t">The visibility rule is in the data model, not the UI</span>
+    <p><code>profiler.profile(..., viewer="instructor")</code> raises
+    <code>ProfileNotVisible</code> unless <code>CourseSettings.dependency_profile_visibility</code>
+    is <code>instructor_opt_in</code>. The API returns 403. There is no hidden div
+    and no disabled button: a dashboard that merely <em>declines to render</em>
+    something is not a privacy guarantee, it is a CSS rule.</p>
+  </div>
+
+  <h3>Demo data</h3>
+  <p>
+    <code>app/demo.py</code> writes a cohort's worth of work with no LLM calls and
+    a seeded RNG, so the dashboard has something to aggregate and two runs produce
+    the same database. The failures are deliberately <em>clustered</em>: a table of
+    eight students failing eight unrelated things would be unreadable, and the
+    panel exists to surface the thing half the class got wrong. A test asserts all
+    three categories appear, that every demo revision carries the quote that
+    justifies it, and that the cohorts are actually distinguishable.
+  </p>
+</section>
+
+<!-- ───────────────────────────────────────────────────────────── 8 -->
+<section id="sandbox">
+  <div class="sec-head"><span class="sec-n">08</span><h2>The sandbox</h2></div>
+  <p class="sec-sub">
+    Running arbitrary student code is a correctness and safety requirement
+    regardless of scale.
+  </p>
+
+  <p>
+    Each case runs in a fresh subprocess: <code>python -I -S _runner.py</code> in a
+    temporary working directory, with a scrubbed environment and the student's code
+    written to <code>solution.py</code>. <code>-I</code> keeps the script directory
+    off <code>sys.path</code>. The result comes back as JSON after a
+    <code>__MUSE_RESULT__</code> marker on stderr, which survives anything the
+    student prints to stdout.
+  </p>
+<pre><code><span class="c"># POSIX only, via preexec_fn</span>
+setrlimit(RLIMIT_CPU,   (cpu, cpu))
+setrlimit(RLIMIT_AS,    (memory, memory))
+setrlimit(RLIMIT_FSIZE, (1 MiB, 1 MiB))
+setrlimit(RLIMIT_NPROC, (64, 64))
+os.setsid()</code></pre>
+  <div class="box warn"><span class="t">Honest limitation</span>
+    <p>Windows has neither <code>resource</code> nor <code>preexec_fn</code>, so on
+    Windows you get the wall-clock timeout and a scratch directory and nothing else.
+    A negative return code is decoded back to a signal name, so SIGXCPU reads as
+    "hit the CPU limit" rather than as a mystery crash. For real grading, run it on
+    Linux or in a container.</p>
+  </div>
+</section>
+
+<!-- ───────────────────────────────────────────────────────────── 9 -->
+<section id="test">
+  <div class="sec-head"><span class="sec-n">09</span><h2>Testing without a network</h2></div>
+
+  <p>
+    <code>USE_FAKE_LLM=1</code> (or simply having no API key) routes
+    <code>generate_structured()</code> to a deterministic stub in
+    <code>app/llm/fake.py</code> that implements all twelve tasks by pattern
+    matching on the payload. The entire flow — gate, tutor, sandbox, reflection,
+    dashboard — runs end to end with no key and no network, and the stub still logs
+    a <code>CallRecord</code> with <code>provider="fake"</code> so the ops view
+    tells the truth about what served.
+  </p>
+  <p>
+    150 tests, all offline. The ones worth knowing about assert behaviour rather
+    than output: that a diagnostic question contains no giveaway token, that a
+    demo revision always carries its evidence quote, that the extraction guard
+    drops model-invented fields, that <code>parse_call_args</code> reads a
+    bracketless list as one argument for a one-parameter function.
+  </p>
+
+  <div class="box warn"><span class="t">The stub bit back once</span>
+    <p>A long run of tests passed against the stub while the live system behaved
+    differently, because the stub and the real prompts had drifted apart. Twice,
+    the fastest way to find a real bug was to copy the live <code>muse.db</code>
+    and query it: that is how we found every call was hitting the offline stub
+    (uvicorn had started before <code>.env</code> existed, and <code>--reload</code>
+    watches <code>.py</code>, not <code>.env</code>), and how we found all 114
+    Mistral calls were 429s. Both root causes would have been very hard to
+    guess.</p>
+  </div>
+</section>
+
+<footer>
+  MUSE · FastAPI · SQLAlchemy 2.0 · SQLite/PostgreSQL · Mistral primary, Groq failover
+</footer>
+
+</div>
+</body>
+</html>

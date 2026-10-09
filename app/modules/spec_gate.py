@@ -121,6 +121,52 @@ def _type_supported(type_name: str, haystack: str) -> str:
     return supported[0]  # container survives, the unsaid parameter does not
 
 
+_NON_ANSWER = re.compile(
+    r"^\s*(i\s+)?(really\s+)?(don'?t\s+know|do\s+not\s+know|dunno|idk|no\s+idea"
+    r"|not\s+sure|no\s+clue|i'?m\s+not\s+sure)"
+    r"|^\s*(yes|yeah|no|nope|ok|okay|sure|maybe|hmm+|\?+)\s*[.!?]*\s*$", re.I)
+
+
+def _sentences(text: str) -> list[str]:
+    return [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", str(text or "")) if s.strip()]
+
+
+def _content_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]+", str(text or "").lower()) if len(w) > 2}
+
+
+def _guard_goal(new_goal, previous_goal, message: str) -> str:
+    """Keep the student's own sentence when the model compresses it away.
+
+    A classification-tier model turns "We need to remove duplicates" into
+    "remove duplicates" — two words, which fails the substance floor in
+    `field_satisfied`. The gate then asks about the goal again and a student who
+    DID answer is told her answer didn't land, over and over. The model
+    returning a goal at all is the evidence that her message contained one; when
+    its version is thinner than hers, hers is the one worth storing.
+    """
+    new_goal = str(new_goal or "").strip()
+    previous_goal = str(previous_goal or "").strip()
+    if not new_goal:
+        return previous_goal
+    if new_goal == previous_goal or field_satisfied("goal", new_goal):
+        return new_goal
+
+    wanted = _content_words(new_goal)
+    if not wanted:
+        return new_goal
+    best, hits = "", 0
+    for sentence in _sentences(message):
+        overlap = len(wanted & _content_words(sentence))
+        if overlap > hits:
+            best, hits = sentence, overlap
+    # The model's goal has to actually come from that sentence, or we would be
+    # filing an unrelated line as the goal.
+    if hits < max(1, len(wanted) - 1) or _NON_ANSWER.match(best):
+        return new_goal
+    return best[:300] if field_satisfied("goal", best) else new_goal
+
+
 def _guard_extraction(updated: dict, previous: dict, message: str) -> dict:
     """Drop anything the model added that the student's words don't support."""
     previous = previous or {}
@@ -133,6 +179,7 @@ def _guard_extraction(updated: dict, previous: dict, message: str) -> dict:
         return any(entry == old for old in (previous.get(field) or []))
 
     guarded = dict(updated)
+    guarded["goal"] = _guard_goal(updated.get("goal"), previous.get("goal"), message)
 
     inputs = []
     for entry in updated.get("inputs") or []:
@@ -447,8 +494,61 @@ def gap_kind_for(item: dict) -> str:
     return "decision"
 
 
+# Words that show a question is about a given specification field. Used to catch
+# the model asking about a DIFFERENT field than the gap it was handed — the
+# student then answers the question she was asked, correctly, and is told her
+# answer didn't settle it, because the gap it was scored against was never the
+# one on screen. That is the single most enraging way this gate can fail.
+_GAP_QUESTION_MARKERS = {
+    "goal": re.compile(
+        r"\bdoes\b|\bdo\b|\bpurpose\b|\bgoals?\b|one[- ]sentence|\bsentence\b|\bdescribe\b"
+        r"|\bdescription\b|own words|\bsummar|\bachieve\b|\baccomplish\b|\bfor\?", re.I),
+    "inputs": re.compile(
+        r"\binputs?\b|\btakes?\b|\bparameters?\b|\barguments?\b|\bcalled\b|\bname\b"
+        r"|\bpassed\b|\baccepts?\b|\bgoes in\b", re.I),
+    "outputs": re.compile(
+        r"\boutputs?\b|\breturns?\b|\bcomes? back\b|\bhands? back\b|\bgives? back\b"
+        r"|\bresult\b", re.I),
+    "examples": re.compile(r"\bexamples?\b|\bconcrete\b|\bfor instance\b|\bsample\b", re.I),
+}
+
+
+def _question_addresses_gap(question: str, gap: dict) -> bool:
+    """Deliberately permissive: a question with no marker of its own is fine, and
+    only one that plainly belongs to another field is rejected. Over-rejecting
+    would trade good phrasing for a canned question."""
+    field = (gap or {}).get("field")
+    pattern = _GAP_QUESTION_MARKERS.get(field or "")
+    if pattern is None:
+        return True
+    if pattern.search(question or ""):
+        return True
+    return not any(other.search(question or "")
+                   for key, other in _GAP_QUESTION_MARKERS.items() if key != field)
+
+
+def _canned_question(gap: dict, starter_code: str | None = None) -> str:
+    """The question we would have asked ourselves. No model, so it can never
+    wander off the gap."""
+    params = signature_params(starter_code)
+    param = params[0] if params else "the input"
+    entry = re.search(r"def\s+(\w+)", starter_code or "")
+    name = f"`{entry.group(1)}`" if entry else "the function"
+    return {
+        "goal": (f"In one sentence and in your own words: what does {name} do? "
+                 "Say what it works on and what it gives back."),
+        "inputs": (f"What should the input be called, and what type are the values "
+                   f"in it? (The starter code calls it `{param}`.)"),
+        "outputs": f"What does {name} give back, and what type is it?",
+        "examples": ("Give me one concrete example: a specific input, and exactly "
+                     "what comes back for it."),
+    }.get((gap or {}).get("field") or "",
+          f"Can you say more about: {gap.get('text', 'this')}?")
+
+
 def generate_clarifying_question(gap: dict, spec: dict, attempt: int = 1,
-                                 last_answer: str | None = None) -> dict:
+                                 last_answer: str | None = None,
+                                 starter_code: str | None = None) -> dict:
     """one rubric gap + current spec -> single natural-language question.
 
     When the same gap comes round again the student's previous answer didn't
@@ -466,8 +566,10 @@ def generate_clarifying_question(gap: dict, spec: dict, attempt: int = 1,
     raw = generate_structured(system, payload, schema, task="clarifying_question", tier=DIALOGUE)
     question = (raw.get("question") or "").strip()
     shortfall = (raw.get("shortfall") or "").strip() or None
+    if not question or not _question_addresses_gap(question, gap):
+        question = _canned_question(gap, starter_code)
     return {
-        "question": question or f"Can you say more about: {gap.get('text', 'this')}?",
+        "question": question,
         "shortfall": shortfall if attempt > 1 else None,
     }
 
@@ -564,7 +666,8 @@ def advance(db: Session, spec: Specification, message: str) -> dict:
 
     can_force_lock = asks >= settings.GATE_MAX_ASKS_PER_GAP
     asked = generate_clarifying_question(gap, working.content, attempt=asks,
-                                         last_answer=message if asks > 1 else None)
+                                         last_answer=message if asks > 1 else None,
+                                         starter_code=assignment.starter_code)
     question = asked["question"]
     working.last_question = question
 
@@ -616,6 +719,12 @@ def _fallback_shortfall(gap: dict, content: dict) -> str:
         return "That doesn't yet say what the input is called and what type it holds."
     if field == "outputs":
         return "That doesn't yet say what comes back and what type it is."
+    if field == "goal":
+        have = str(value or "").strip()
+        if have:
+            return (f"All I've got for the goal so far is “{have}” — that's "
+                    "the idea, but write it as a full sentence.")
+        return "I still don't have a one-sentence statement of what the function does."
     return "That didn't quite settle it — let's try a narrower question."
 
 
@@ -684,7 +793,8 @@ def force_lock(db: Session, spec: Specification, gap_id: str | None = None) -> d
     asks = new_counts.get(next_id, 0) + 1
     new_counts[next_id] = asks
     spec.gap_ask_counts = new_counts
-    question = generate_clarifying_question(gap, spec.content)["question"]
+    question = generate_clarifying_question(
+        gap, spec.content, starter_code=spec.assignment.starter_code)["question"]
     spec.last_question = question
     _record_turn(db, spec, kind="override", student_message="My answer stands",
                  question=question, gap=gap)
@@ -736,7 +846,9 @@ def dont_know(db: Session, spec: Specification) -> dict:
     )
 
     question = (help_payload["question"]
-                or generate_clarifying_question(gap, spec.content)["question"])
+                or generate_clarifying_question(
+                    gap, spec.content,
+                    starter_code=spec.assignment.starter_code)["question"])
     spec.last_question = question
     _record_turn(db, spec, kind="dont_know", student_message="I don't know",
                  question=question, gap=gap)

@@ -6,6 +6,8 @@
 <title>MUSE — instructor</title>
 <link rel="stylesheet" href="/static/css/styles.css?v=20260920">
 <link rel="stylesheet" href="/static/css/instructor.css?v=20260917">
+<link rel="stylesheet" href="/static/css/charts.css?v=20261009">
+<link rel="stylesheet" href="/static/css/dashboard.css?v=20261009">
 </head>
 <body class="instructor">
 
@@ -37,7 +39,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
         </span>
       </summary>
-      <div class="body"><div class="stat-row" id="stats"></div></div>
+      <div class="body">
+        <div class="stat-row" id="stats"></div>
+        <div class="tier-spread" id="tier-spread"></div>
+      </div>
     </details>
 
     <button type="button" class="card card-button" id="open-assignment-dialog">
@@ -73,10 +78,27 @@
         </span>
       </summary>
       <div class="body tight">
-        <table>
-          <thead><tr><th>Name</th><th>Cohort</th><th class="num">Spec versions</th><th class="num">Questions</th><th class="num">Discrepancies</th></tr></thead>
-          <tbody id="students"></tbody>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Name</th><th>Status</th><th class="num">Time</th><th class="num">Questions</th><th class="num">Hints</th><th class="num">Differences</th></tr></thead>
+            <tbody id="students"></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+
+    <details class="card" open id="student-card">
+      <summary>
+        <span class="card-icon tone-accent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+        </span>
+        <span class="card-title">Student dashboard</span>
+        <span class="chevron">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </summary>
+      <div class="body" id="student-dashboard">
+        <p class="tagline">Pick a student above to see their full picture.</p>
       </div>
     </details>
 
@@ -103,24 +125,7 @@
   </div>
 
   <div class="dash-col">
-    <details class="card">
-      <summary>
-        <span class="card-icon tone-violet">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8-6-16-3 8H2"/></svg>
-        </span>
-        <span class="card-title">Provider log</span>
-        <span class="chevron">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
-        </span>
-      </summary>
-      <div class="body tight">
-        <div class="body"><div class="stat-row" id="provider-stats"></div></div>
-        <div class="scroll-360"><table>
-          <thead><tr><th>Task</th><th>Provider</th><th class="num">ms</th><th>Result</th></tr></thead>
-          <tbody id="provider-log"></tbody>
-        </table></div>
-      </div>
-    </details>
+    
 
     <details class="card">
       <summary>
@@ -286,6 +291,7 @@
   </div>
 </div>
 
+<script src="/static/js/charts.js?v=20261009"></script>
 <script src="/static/js/instructor.js?v=20260916d"></script>
 </body>
 </html>

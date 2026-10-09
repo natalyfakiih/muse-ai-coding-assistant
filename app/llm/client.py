@@ -173,6 +173,19 @@ def is_retryable(exc: Exception) -> bool:
     return any(hint in name for hint in _RETRYABLE_NAME_HINTS)
 
 
+def is_auth_error(exc: Exception) -> bool:
+    """A bad, revoked or expired key. Retrying cannot help and the next request
+    will fail identically, so this has to read differently from an outage: the
+    fix is a new key, not waiting."""
+    if _status_code(exc) in (401, 403):
+        return True
+    text = f"{type(exc).__name__} {exc}".lower()
+    return any(hint in text for hint in (
+        "invalid api key", "expired_api_key", "authenticationerror",
+        "unauthorized", "invalid_api_key",
+    ))
+
+
 def is_rate_limit(exc: Exception) -> bool:
     """A 429 specifically, including SDKs that bury it in the message.
 
@@ -363,6 +376,7 @@ def generate_structured(
         )
 
     last_error: Exception | None = None
+    auth_failures: list[str] = []
 
     for index, provider in enumerate(order):
         # A provider reached only because the primary is in cooldown is still a
@@ -391,15 +405,29 @@ def generate_structured(
                 latency = int((time.perf_counter() - started) * 1000)
                 rate_limited = is_rate_limit(exc)
                 retryable = is_retryable(exc)
+                auth_failed = is_auth_error(exc)
+                if auth_failed:
+                    auth_failures.append(provider)
                 _log_call(CallRecord(
                     task=task, tier=tier, provider=provider, model=model,
                     latency_ms=latency, success=False, fell_back=is_fallback,
                     attempts=attempt + 1,
-                    error_type="RateLimited" if rate_limited else type(exc).__name__,
+                    error_type=("AuthFailed" if auth_failed else
+                                "RateLimited" if rate_limited else type(exc).__name__),
                     error_detail=str(exc)[:2000],
                 ))
                 last_error = exc
+                if auth_failed:
+                    # One dead key must not take the request down while the
+                    # other provider is healthy. Retrying this one is pointless,
+                    # so stop here and let the fallback have it.
+                    break
                 if not retryable:
+                    # Still raises. A 400 means WE sent a bad request, and
+                    # trying the same request on the other provider only hides
+                    # our own bug. Only the auth case above falls through, and
+                    # it does so because a dead key says nothing about whether
+                    # the request was well formed.
                     raise
                 if rate_limited:
                     # Over quota. A second attempt 1.5s later hits the same cap,
@@ -420,6 +448,16 @@ def generate_structured(
                 ))
                 return parsed
 
+    if auth_failures:
+        # The single most common cause, and the one with a concrete fix. Saying
+        # "rate-limited or down" here sends the reader looking for an outage
+        # that is not happening.
+        raise ProviderExhaustedError(
+            f"The API key for {' and '.join(sorted(set(auth_failures)))} was "
+            f"rejected as invalid or expired. Issue a new key, put it in .env, "
+            f"then fully restart the server (--reload does not pick up .env). "
+            f"To keep working without a key in the meantime, set USE_FAKE_LLM=1."
+        )
     raise ProviderExhaustedError(
         f"All providers ({', '.join(order)}) are rate-limited or down. "
         f"Last error: {type(last_error).__name__ if last_error else 'unknown'}: {last_error}"

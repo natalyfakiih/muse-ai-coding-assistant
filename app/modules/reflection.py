@@ -17,13 +17,20 @@ Three steps:
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.llm import CLASSIFICATION, DIALOGUE, generate_structured
 from app.llm import prompts
-from app.models import CodeSnapshot, DiffResult, Interaction, Specification
+from app.models import (
+    CodeSnapshot,
+    DiffResult,
+    Interaction,
+    Specification,
+    SubmissionAttempt,
+)
 from app.modules import sandbox
 
 CATEGORIES = ("drift", "revision", "bug")
@@ -104,6 +111,25 @@ def _declared_output_types(content: dict) -> set[str]:
     return names
 
 
+def _mismatch(expected, result) -> str:
+    """"expected '1,2', got '1,2'" is a real message this produced, and there is
+    nothing a student can do with it. When the two read alike the difference is
+    the type, so say the type."""
+    expected_value, parsed = sandbox.parse_expected(expected)
+    want = repr(expected_value) if parsed else str(expected)
+    got = result.value_repr
+    if _looks_alike(want, got):
+        want_type = type(expected_value).__name__ if parsed else "str"
+        return (f"expected {want} ({want_type}), got {got} "
+                f"({result.value_type or 'unknown'}) — same values, different type")
+    return f"expected {want}, got {got}"
+
+
+def _looks_alike(want: str | None, got: str | None) -> bool:
+    strip = lambda s: "".join(str(s or "").split()).strip("'\"[]()")  # noqa: E731
+    return strip(want) == strip(got)
+
+
 def _row(*, kind, key, source, input_spec, expected, result, declared_types,
          expectation_declared) -> dict:
     failure: str | None = None
@@ -111,7 +137,7 @@ def _row(*, kind, key, source, input_spec, expected, result, declared_types,
     if result.error:
         failure = f"raised {result.error}"
     elif expectation_declared and not sandbox.matches(result.value_repr, expected):
-        failure = f"expected {expected!r}, got {result.value_repr}"
+        failure = _mismatch(expected, result)
     elif declared_types and result.value_type and result.value_type not in declared_types:
         failure = (
             f"declared output type {'/'.join(sorted(declared_types))} but returned "
@@ -331,6 +357,35 @@ def submit(db: Session, spec: Specification, code: str | None = None) -> dict:
         )
         db.add(diff)
         created.append(diff)
+
+    # Retry history. The DiffResult rows above are the CURRENT verdict and get
+    # replaced on every submission; this row is kept, so "they got there on the
+    # fourth try, forty minutes apart" stays answerable.
+    previous = db.scalars(
+        select(SubmissionAttempt)
+        .where(SubmissionAttempt.specification_id == spec.id)
+        .order_by(SubmissionAttempt.attempt_number.desc())
+        .limit(1)
+    ).first()
+    now = datetime.now(timezone.utc)
+    gap = None
+    if previous is not None and previous.timestamp is not None:
+        before = previous.timestamp
+        if before.tzinfo is None:  # SQLite hands back naive datetimes
+            before = before.replace(tzinfo=timezone.utc)
+        gap = max(0, int((now - before).total_seconds()))
+    db.add(SubmissionAttempt(
+        specification_id=spec.id,
+        student_id=spec.student_id,
+        assignment_id=spec.assignment_id,
+        code_snapshot_id=snapshot.id,
+        attempt_number=(previous.attempt_number + 1) if previous else 1,
+        timestamp=now,
+        cases_run=len(rows),
+        cases_passed=len(rows) - len(failures),
+        differences=len(created),
+        seconds_since_previous=gap,
+    ))
 
     db.commit()
     for diff in created:

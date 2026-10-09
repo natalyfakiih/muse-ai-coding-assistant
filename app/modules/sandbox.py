@@ -71,7 +71,28 @@ class RunResult:
 # Argument parsing: the specification's examples are written by students, in
 # call-argument form ("n=3", "items=[], k=2", or bare "3").
 # --------------------------------------------------------------------------
-def parse_call_args(input_spec: str) -> tuple[list, dict]:
+def entry_arity(code: str, entry_point: str) -> int | None:
+    """How many positional parameters the entry point declares — or None when it
+    takes *args, where any number is legitimate and nothing should be reshaped."""
+    try:
+        tree = ast.parse(code or "")
+    except SyntaxError:
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == entry_point:
+            if node.args.vararg is not None:
+                return None
+            return len(getattr(node.args, "posonlyargs", [])) + len(node.args.args)
+    return None
+
+
+def parse_call_args(input_spec: str, arity: int | None = None) -> tuple[list, dict]:
+    """Students write examples the way they'd say them out loud. "1,1,2" for a
+    one-parameter function is one list with the brackets left off, not three
+    arguments — and reading it as three is how a correct `dedupe(items)` gets
+    called as `dedupe(1, 1, 2)` and fails on a TypeError the student can do
+    nothing about except deform their function to match.
+    """
     text = (input_spec or "").strip()
     if not text:
         return [], {}
@@ -80,6 +101,8 @@ def parse_call_args(input_spec: str) -> tuple[list, dict]:
         if isinstance(call, ast.Call):
             args = [ast.literal_eval(a) for a in call.args]
             kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in call.keywords if kw.arg}
+            if arity == 1 and len(args) > 1 and not kwargs:
+                args = [list(args)]
             return args, kwargs
     except (SyntaxError, ValueError):
         pass
@@ -112,6 +135,13 @@ def matches(actual_repr: str | None, expected_raw: str | None) -> bool:
             return str(actual_repr).strip() == str(expected_raw).strip()
         if isinstance(actual_value, bool) != isinstance(expected_value, bool):
             return False
+        # "1,2" written as an expected output parses as the tuple (1, 2). A
+        # student who wrote it meant the sequence, not the container type — and
+        # the container type is separately checked against the declared output
+        # type, so failing here would report the same thing twice and, worse,
+        # push them into returning a tuple.
+        if isinstance(actual_value, (list, tuple)) and isinstance(expected_value, (list, tuple)):
+            return list(actual_value) == list(expected_value)
         try:
             return actual_value == expected_value
         except Exception:
@@ -138,7 +168,7 @@ def _limits():  # pragma: no cover - POSIX only
 
 def run_case(code: str, entry_point: str, input_spec: str) -> RunResult:
     """Run one declared case against the student's code."""
-    args, kwargs = parse_call_args(input_spec)
+    args, kwargs = parse_call_args(input_spec, arity=entry_arity(code, entry_point))
 
     with tempfile.TemporaryDirectory(prefix="muse-run-") as workdir:
         path = Path(workdir)

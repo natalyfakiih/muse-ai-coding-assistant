@@ -292,3 +292,75 @@ def test_a_successful_call_clears_the_strikes(monkeypatch):
 
     assert llm.breaker_is_open("mistral") is False
     assert llm.breaker_status()["mistral"]["consecutive_rate_limits"] == 0
+
+
+# --------------------------------------------------------------------------
+# Expired and rejected keys
+#
+# A 401 is not an outage and not a bug in our request: it is a key that needs
+# replacing. It used to escape generate_structured() raw, which both skipped a
+# healthy fallback and surfaced a provider's own exception to the student as a
+# 500 with a traceback.
+# --------------------------------------------------------------------------
+class Unauthorized(Exception):
+    status_code = 401
+
+
+def test_a_dead_key_on_the_primary_falls_over_to_the_healthy_one(monkeypatch):
+    """One expired key must not take the request down while the other provider
+    is fine."""
+    wire(monkeypatch,
+         lambda m, model: (_ for _ in ()).throw(Unauthorized("Invalid API Key")),
+         lambda m, model: '{"type": "served-by-groq"}')
+
+    assert llm.generate_structured("s", "u", "{}")["type"] == "served-by-groq"
+
+
+def test_when_every_key_is_rejected_the_error_names_the_fix(monkeypatch):
+    """"All providers are rate-limited or down" sends the reader hunting for an
+    outage that is not happening. The actual fix is a new key."""
+    def rejected(messages, model):
+        raise Unauthorized("Error code: 401 - invalid_api_key: expired_api_key")
+
+    wire(monkeypatch, rejected, rejected)
+
+    with pytest.raises(llm.ProviderExhaustedError) as raised:
+        llm.generate_structured("s", "u", "{}")
+
+    message = str(raised.value).lower()
+    assert "invalid or expired" in message
+    assert "mistral" in message and "groq" in message
+    assert ".env" in message          # where to put the new one
+    assert "restart" in message       # --reload does not reload .env
+    assert "use_fake_llm" in message  # how to keep working without a key
+
+
+def test_a_rejected_key_is_logged_as_an_auth_failure_not_a_rate_limit(monkeypatch):
+    """The ops log has to separate "we are over quota" from "this key is dead";
+    they look identical in a latency chart and have nothing in common."""
+    seen = []
+    llm.register_call_logger(seen.append)
+    try:
+        wire(monkeypatch,
+             lambda m, model: (_ for _ in ()).throw(Unauthorized("Invalid API Key")),
+             lambda m, model: '{"ok": true}')
+        llm.generate_structured("s", "u", "{}")
+    finally:
+        llm._sinks.clear()
+
+    failures = [r for r in seen if not r.success]
+    assert failures and failures[0].error_type == "AuthFailed"
+
+
+@pytest.mark.parametrize("exc", [
+    Unauthorized("401"),
+    Exception("Error code: 401 - {'error': {'code': 'expired_api_key'}}"),
+    Exception("AuthenticationError: Invalid API Key"),
+])
+def test_the_shapes_a_rejected_key_arrives_in(exc):
+    assert llm.is_auth_error(exc) is True
+
+
+@pytest.mark.parametrize("exc", [RateLimited("429"), ServerError("503"), BadRequest("400")])
+def test_other_failures_are_not_mistaken_for_auth(exc):
+    assert llm.is_auth_error(exc) is False

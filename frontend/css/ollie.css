@@ -1,0 +1,80 @@
+/* Ollie's colours and the small amount of life he has.
+ */
+/* MUSE's own stylesheet has no light palette: the app is dark, full stop.
+   So Ollie's base tokens are the ones that work on a dark panel. Theming them
+   light-first would have put light-theme fur on a dark background for anyone
+   whose OS is set to light, which is most people's default. */
+:root{
+  --ollie-fur:#b57f57;
+  --ollie-fur-dark:#946440;
+  --ollie-inner-ear:#d9a983;
+  --ollie-muzzle:#f0ddc7;
+  --ollie-ink:#1a120c;
+  --ollie-whisker:#c7ae97;
+  --ollie-name:#e0af68;
+}
+
+.ollie{
+  display:inline-block; width:var(--ollie-size,34px); height:var(--ollie-size,34px);
+  flex:0 0 auto; line-height:0;
+}
+.ollie svg{width:100%; height:100%; display:block; overflow:visible}
+
+/* A slow breath and an occasional blink. He is sitting beside the work, not
+   performing at it — anything bouncier gets annoying by the third hour. */
+.ollie.is-idle svg{animation:ollie-breathe 5.5s ease-in-out infinite}
+@keyframes ollie-breathe{
+  0%,100%{transform:translateY(0) scale(1)}
+  50%    {transform:translateY(-1.4px) scale(1.012)}
+}
+.ollie.is-idle .ollie-eyes{animation:ollie-blink 7.2s ease-in-out infinite}
+@keyframes ollie-blink{
+  0%, 92%, 100%{transform:scaleY(1)}
+  95%          {transform:scaleY(.12)}
+}
+.ollie-eyes{transform-box:fill-box; transform-origin:center}
+.ollie.is-idle .ollie-tuft{animation:ollie-tuft 6.4s ease-in-out infinite}
+@keyframes ollie-tuft{
+  0%,100%{transform:rotate(0deg)}
+  40%    {transform:rotate(-8deg)}
+  70%    {transform:rotate(5deg)}
+}
+.ollie-tuft{transform-box:fill-box; transform-origin:bottom center}
+
+/* ---- Ollie in the chat ---------------------------------------------- */
+.msg.muse{display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:start}
+.msg.muse .ollie{margin-top:2px}
+.msg.muse .ollie-body{min-width:0}
+.msg.muse .who{
+  display:block; color:var(--ollie-name); font-weight:600;
+  font-size:11px; letter-spacing:.06em; text-transform:none; margin-bottom:3px;
+}
+.msg.muse .line{line-height:1.55}
+.msg.muse.thinking{align-items:center}
+
+/* ---- "Ollie says": him turning up where there is no chat ------------- */
+.ollie-says{
+  display:flex; align-items:center; gap:12px;
+  padding:11px 14px; border-radius:10px;
+  border:1px solid var(--line); background:var(--panel-2);
+}
+.ollie-says.compact{padding:8px 11px; gap:9px}
+.ollie-line{
+  margin:0; font-size:13.5px; line-height:1.5; color:var(--ink-dim); min-width:0;
+}
+.ollie-line b{color:var(--ink); font-weight:600}
+
+/* The introduction at the top of the gate. */
+.ollie-intro{
+  display:flex; align-items:center; gap:13px; padding:13px 15px;
+  border:1px solid var(--line); border-radius:10px; background:var(--panel-2);
+  margin-bottom:12px;
+}
+.ollie-intro .t{font-size:13.5px; color:var(--ink-dim); line-height:1.5}
+.ollie-intro .t b{color:var(--ink); font-weight:600}
+
+@media (prefers-reduced-motion:reduce){
+  .ollie.is-idle svg,
+  .ollie.is-idle .ollie-tuft,
+  .ollie.is-idle .ollie-eyes{animation:none}
+}

@@ -138,3 +138,58 @@ def test_dont_know_and_overrides_are_visible_in_the_transcript(seeded):
     entries = client.get(f"/api/specifications/{spec['specification_id']}/session-stats"
                          ).json()["transcript"]
     assert any(e["tag"] == "dont_know" for e in entries)
+
+
+# ------------------------------------------------------- the even/odd assignment
+def test_the_even_odd_assignment_runs_end_to_end(client):
+    """Its rubric turns on a genuine design decision — true/false or the words —
+    so it exercises the type gap, two condition gaps and the example gap."""
+    assignment = [a for a in client.get("/api/assignments").json()
+                  if a["entry_point"] == "even_or_odd"][0]
+    aid, sid = assignment["id"], 1
+
+    assert [i["id"] for i in assignment["rubric_items"]] == [
+        "goal", "inputs", "outputs", "zero", "negative", "examples"]
+
+    result = {}
+    for message in ["a function that says whether a whole number is even or odd",
+                    "it takes an int n and returns a string",
+                    'for example n=4 -> "even"',
+                    "when the number is 0 it returns even",
+                    "for negative numbers it works the same way, -3 gives odd"]:
+        result = client.post(f"/api/assignments/{aid}/specification",
+                             json={"student_id": sid, "message": message}).json()
+        if result["locked"]:
+            break
+    assert result["locked"] is True
+
+    spec_id = result["specification_id"]
+    buggy = ("def even_or_odd(n):\n    if n == 0:\n        return 'odd'\n"
+             "    return 'even' if n % 2 == 0 else 'odd'\n")
+    good = "def even_or_odd(n):\n    return 'even' if n % 2 == 0 else 'odd'\n"
+
+    failed = client.post(f"/api/specifications/{spec_id}/submit",
+                         json={"code": buggy}).json()
+    assert failed["diff_results"], "declaring 0 is even and returning odd must surface"
+
+    passed = client.post(f"/api/specifications/{spec_id}/submit",
+                         json={"code": good}).json()
+    assert passed["diff_results"] == []
+
+
+def test_seeding_adds_a_new_assignment_without_wiping_anything(db):
+    """Adding an assignment shouldn't cost everyone their work."""
+    from app.models import Assignment, Specification
+    import app.seed as seed_module
+
+    db.add(Specification(assignment_id=1, student_id=1, version=1,
+                         content={}, status="locked"))
+    db.commit()
+    before = db.query(Specification).count()
+
+    seed_module.seed()          # no --reset
+
+    assert db.query(Specification).count() == before, "existing work survived"
+    entry_points = {(a.rubric or {}).get("entry_point") for a in db.query(Assignment).all()}
+    assert entry_points == {"fib", "dedupe", "even_or_odd"}
+    assert db.query(Assignment).count() == 3, "and nothing was duplicated"

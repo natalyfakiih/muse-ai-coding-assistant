@@ -5,3 +5,11 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+
+# SQLite runtime files. Tracking these lets a reset roll the WAL back
+# out of step with the database, which corrupts it.
+muse.db
+muse.db-shm
+muse.db-wal
+muse.db.corrupt
+*.db-journal

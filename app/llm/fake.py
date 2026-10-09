@@ -68,6 +68,16 @@ def _type_in(segment: str) -> str:
     return container or element or ""
 
 
+_NON_ANSWERS = re.compile(
+    r"^(dunno|idk|i\s*dont?\s*know|i don't know|no idea|not sure|nothing|\?+|"
+    r"same answer.*|whatever)[.!\s]*$", re.I)
+
+
+def _is_non_answer(message: str) -> bool:
+    """"dunno" is not an answer, so it must not satisfy a rubric item."""
+    return bool(_NON_ANSWERS.match((message or "").strip()))
+
+
 def _payload(user_payload: str) -> dict[str, Any]:
     try:
         data = json.loads(user_payload)
@@ -97,9 +107,19 @@ def _extract_fields(data: dict) -> dict:
     # A short reply answers the question that was just asked, so fold the
     # question's wording in before matching — otherwise "an empty list" is
     # recorded with no trace of the condition it applies to.
+    #
+    # Two guards. A non-answer folds into nothing: "dunno" plus the question
+    # would otherwise store MUSE's own question as the student's edge case and
+    # tick the item off. And the question's boilerplate is stripped, so what
+    # lands in the specification reads as a statement rather than a prompt.
     asked = (data.get("answering_question") or "").strip()
+    if _is_non_answer(message):
+        asked = ""
     if asked and len(message.split()) <= 12:
-        message = f"{asked} {message}"
+        asked = re.sub(r"^.*?—\s*", "", asked)
+        asked = re.sub(r"\?.*$", "", asked).strip()
+        asked = re.sub(r"^must\s+", "", asked, flags=re.I)
+        message = f"{asked}: {message}" if asked else message
 
     low = message.lower()
     for keyword, label in _EDGE_KEYWORDS.items():
@@ -115,6 +135,20 @@ def _extract_fields(data: dict) -> dict:
         entry = sentence if len(sentence) <= 160 else label
         if not any(keyword in existing.lower() for existing in spec["edge_cases"]):
             spec["edge_cases"].append(entry)
+
+    # A bare "0" is how students usually write the zero case — "when the number
+    # is 0", never "when the number is zero". But only as a CONDITION: an
+    # example like "n=3 -> [0, 1, 1]" also contains a 0 and is not a statement
+    # about what happens when n is 0.
+    states_a_condition = (re.search(r"\b(when|if|for|case|given)\b", low)
+                          and not re.search(r"->|=>", message))
+    if states_a_condition and re.search(r"\b0\b", low) and not any(
+            re.search(r"\b0\b|zero", e.lower()) for e in spec["edge_cases"]):
+        sentence = next(
+            (t.strip() for t in re.split(r"(?<=[.!?])\s+|\n", message) if re.search(r"\b0\b", t)),
+            "n = 0",
+        )
+        spec["edge_cases"].append(sentence if len(sentence) <= 160 else "n = 0")
 
     # "takes a list of integers called items" / "takes an int n" / "returns a list of ints"
     taken = re.search(r"\b(?:takes?|accepts?|receives?)\b(.*)", low)
@@ -139,7 +173,8 @@ def _extract_fields(data: dict) -> dict:
     # Deliberately strict: a loose pattern here turns half a sentence into a
     # test case, and the Reflection Engine then runs it.
     for match in re.finditer(
-        r"(\b[\w\s]*?[\w\]\)](?:\s*=\s*|\()[^->\n]{0,40}?)\s*(?:->|=>)\s*(\[[^\]]*\]|\([^)]*\)|-?[\w.]+)",
+        r"(\b[\w\s]*?[\w\]\)](?:\s*=\s*|\()[^->\n]{0,40}?)\s*(?:->|=>)\s*"
+        r"(\"[^\"]*\"|'[^']*'|\[[^\]]*\]|\([^)]*\)|-?[\w.]+)",
         message,
     ):
         left = match.group(1).strip().rstrip(",")
@@ -175,15 +210,22 @@ def _next_gap(data: dict) -> dict:
 def _rubric_item_met(item_id: str, text: str, spec: dict) -> bool:
     low = f"{item_id} {text}".lower()
     blob = json.dumps(spec).lower()
+    # A rubric item about a CONDITION is answered by a declared edge case, not
+    # by the whole specification happening to contain the right character —
+    # "[0, 1, 1]" in a fibonacci example is not a statement about n = 0.
+    edges = " ".join(
+        str(e) for e in (spec.get("edge_cases") or []) + (spec.get("explicit_exclusions") or [])
+    ).lower()
     # Specific markers first: "empty_input" contains "input", and checking the
     # generic branch first would mark the empty-input rubric item answered the
     # moment any input was named.
-    if "empty" in low or "n = 0" in low or "n=0" in low:
-        return "empty" in blob or "zero" in blob or "n = 0" in blob or "n=0" in blob
+    if "empty" in low or "zero" in low or re.search(r"\b0\b", low):
+        return ("empty" in edges or "zero" in edges
+                or re.search(r"\b0\b", edges) is not None)
     if "negative" in low:
-        return "negative" in blob
+        return "negative" in edges or re.search(r"-\d", edges) is not None
     if "order" in low:
-        return "order" in blob
+        return "order" in edges
     if "example" in low:
         return bool(spec.get("examples"))
     if "edge" in low:
@@ -352,7 +394,7 @@ def _materialize_edge_cases(data: dict) -> dict:
             value = "-1"
         elif "empty" in low:
             value = "[]" if input_is_list else "0"
-        elif "zero" in low or "= 0" in low or "n=0" in low:
+        elif "zero" in low or re.search(r"\b0\b", low):
             value = "0"
         else:
             value = "[]" if input_is_list else "1"
@@ -360,10 +402,23 @@ def _materialize_edge_cases(data: dict) -> dict:
         # Pull a declared expectation out of the student's own wording:
         # "... should return an empty list" / "... returns []"
         expected = None
-        match = re.search(r"(?:should\s+)?returns?\s+(?:an?\s+|the\s+)?(\[[^\]]*\]|empty list|none|-?\d+)", low)
+        # Students answer in words as often as in literals — "returns even",
+        # "gives odd", "is true". Only matching brackets and digits meant every
+        # such case ran with nothing to check against, and passed vacuously.
+        value_pattern = (r"(\"[^\"]*\"|'[^']*'|\[[^\]]*\]|empty list|none|true|false"
+                         r"|even|odd|-?\d+)")
+        match = None
+        # Strong verbs first: "when the number IS 0 it RETURNS even" would
+        # otherwise record 0 as the expected result rather than "even".
+        for verbs in (r"returns?|gives?|yields?|outputs?|hands? back", r"is|be"):
+            match = re.search(
+                rf"(?:should\s+|will\s+)?(?:{verbs})\s+(?:an?\s+|the\s+)?{value_pattern}",
+                low)
+            if match:
+                break
         if match:
             word = match.group(1)
-            expected = "[]" if word in ("empty list",) else ("None" if word == "none" else word)
+            expected = {"empty list": "[]", "none": "None"}.get(word, word)
 
         cases.append({
             "edge_case": str(edge),

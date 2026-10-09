@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Assignment, Course, LLMCall, Student
-from app.modules import dashboard, profiler
+from app.modules import dashboard, insights, profiler
 from app.schemas import CourseCreate, VisibilityBody
 
 router = APIRouter(tags=["instructor-dashboard"])
@@ -84,6 +84,33 @@ def dependency_profile(
         raise HTTPException(403, str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/students/{student_id}/insights")
+def student_insights(
+    student_id: int,
+    viewer: str = Query("student", pattern="^(student|instructor)$"),
+    db: Session = Depends(get_db),
+):
+    """Timing, strengths, weaknesses and the plan for one student.
+
+    `viewer=student` is the default and returns everything EXCEPT the status
+    tier. Which tier a student falls into is a conversation for their
+    instructor to open, not a label to hand them in a panel — so it is left out
+    of the payload rather than hidden in the page, and the student's own
+    browser never receives it.
+    """
+    try:
+        return insights.student_insights(db, student_id, viewer=viewer)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/courses/{course_id}/analytics/insights")
+def class_insights(course_id: str, db: Session = Depends(get_db)):
+    """The roster with a status tier beside every name, plus class averages.
+    Instructor-facing by definition: it is a list of other people."""
+    return insights.class_insights(db, course_id)
 
 
 @router.put("/courses/{course_id}/settings/dependency-profile-visibility")

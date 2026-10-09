@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MUSE</title>
+<meta name="description" content="MUSE is a programming tutor that will not write your code. It locks the editor until you can say what you're building, answers your questions with better questions, and shows you every place your program disagrees with your own specification.">
+<meta name="color-scheme" content="dark light">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="MUSE">
+<meta property="og:description" content="AI that helps students think, instead of thinking for them. A programming tutor that refuses to write your code.">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f1115'/%3E%3Ctext x='16' y='22' font-family='ui-monospace,monospace' font-size='15' font-weight='600' fill='%237aa2f7' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+
+<style>
+/* ── tokens ─────────────────────────────────────────────────────────────
+   Dark first, taken from the product's own stylesheet so the site and the
+   thing it describes read as one object. Light is a consistent swap of the
+   same roles, not an inversion.                                          */
+:root{
+  --bg:#f4f6f9;  --bg-deep:#e8ecf2;  --panel:#ffffff;  --panel-2:#f8fafc;
+  --line:#d8dee8; --line-soft:#e6eaf1;
+  --ink:#141822;  --ink-dim:#4c5566; --ink-faint:#78829a;
+  --accent:#2b56c4; --accent-soft:#e4ebfd; --accent-line:#b9cbf6;
+  --ok:#2f7d45;   --drift:#9a6a10;   --revision:#2b56c4; --bug:#b3253f;
+  --ok-bg:#e6f4ea; --drift-bg:#fbf1dc; --revision-bg:#e4ebfd; --bug-bg:#fce8ec;
+  --shadow:0 1px 2px rgba(20,24,34,.06), 0 8px 28px -18px rgba(20,24,34,.35);
+
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+
+  --band:clamp(52px,7vw,96px);
+  --gutter:clamp(18px,5vw,48px);
+  --measure:66ch;
+
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --bg-deep:#0a0c10; --panel:#161a21; --panel-2:#1b212a;
+    --line:#262d38; --line-soft:#1e242e;
+    --ink:#e6e9ef; --ink-dim:#97a0b0; --ink-faint:#6b7484;
+    --accent:#7aa2f7; --accent-soft:#18203150; --accent-line:#3d5a9e;
+    --ok:#7fd18c; --drift:#e0af68; --revision:#7aa2f7; --bug:#f7768e;
+    --ok-bg:#15241a; --drift-bg:#2a2113; --revision-bg:#161f33; --bug-bg:#2c1720;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -26px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --bg-deep:#0a0c10; --panel:#161a21; --panel-2:#1b212a;
+  --line:#262d38; --line-soft:#1e242e;
+  --ink:#e6e9ef; --ink-dim:#97a0b0; --ink-faint:#6b7484;
+  --accent:#7aa2f7; --accent-soft:#18203150; --accent-line:#3d5a9e;
+  --ok:#7fd18c; --drift:#e0af68; --revision:#7aa2f7; --bug:#f7768e;
+  --ok-bg:#15241a; --drift-bg:#2a2113; --revision-bg:#161f33; --bug-bg:#2c1720;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -26px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--sans); font-size:16px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%}
+h1,h2,h3{font-family:var(--serif); font-weight:600; text-wrap:balance; margin:0; line-height:1.22}
+p{margin:0}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+
+.wrap{width:100%; max-width:1120px; margin-inline:auto; padding-inline:var(--gutter)}
+
+/* A `1fr` grid track takes its min width from its content, so one wide <pre>
+   or table pushes the whole page sideways at phone width. Every grid child
+   here may shrink; the wide things scroll inside their own box. */
+.phase > *, .split > *, .gate > *, .gains > *, .stats > *, .specs > *{min-width:0}
+figure, .scroll, .card{max-width:100%; min-width:0}
+
+/* ── masthead ─────────────────────────────────────────────────────────── */
+.masthead{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:40;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+}
+.masthead .wrap{display:flex; align-items:center; gap:18px; padding-block:14px}
+.mark{font-family:var(--mono); font-weight:600; font-size:17px; letter-spacing:.24em; color:var(--ink)}
+.mark b{color:var(--accent); font-weight:600}
+.mark-sub{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+  color:var(--ink-faint); text-transform:lowercase;
+}
+.masthead nav{margin-left:auto; display:flex; gap:20px; align-items:center}
+.masthead nav a{
+  font-family:var(--mono); font-size:12px; letter-spacing:.08em;
+  color:var(--ink-dim); text-decoration:none;
+}
+.masthead nav a:hover{color:var(--ink)}
+@media(max-width:720px){ .mark-sub,.masthead nav a.opt{display:none} }
+
+/* ── generic band ─────────────────────────────────────────────────────── */
+section{border-bottom:1px solid var(--line-soft)}
+section > .wrap{padding-block:var(--band)}
+.eyebrow{
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--ink-faint);
+  display:flex; align-items:center; gap:10px; margin-bottom:22px;
+}
+.eyebrow::after{content:""; flex:1; height:1px; background:var(--line); min-width:20px}
+.eyebrow .n{color:var(--accent); font-weight:600}
+.lede{font-size:clamp(17px,1.9vw,20px); color:var(--ink-dim); max-width:var(--measure)}
+.lede + .lede{margin-top:16px}
+h2.band-title{font-size:clamp(24px,3.2vw,33px)}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.hero > .wrap{padding-block:clamp(44px,6vw,78px) var(--band)}
+.hero h1{font-size:clamp(34px,5.4vw,60px); letter-spacing:-.015em; max-width:17ch}
+.hero h1 em{font-style:normal; color:var(--accent)}
+.hero .lede{margin-top:24px; font-size:clamp(17px,2vw,21px); line-height:1.55}
+.stance{
+  margin-top:30px; padding:16px 20px; border-left:2px solid var(--accent);
+  background:var(--accent-soft); max-width:var(--measure);
+  font-family:var(--mono); font-size:13.5px; line-height:1.7; color:var(--ink-dim);
+}
+.stance b{color:var(--ink); font-weight:600}
+
+/* the cursor that stands in for the full stop */
+.cursor{
+  display:inline-block; width:.5em; height:.82em; margin-left:.1em;
+  background:var(--accent); vertical-align:-.04em;
+  animation:blink 1.15s steps(1) infinite;
+}
+.caret{width:7px; height:15px; background:var(--accent); display:inline-block;
+       animation:blink 1.15s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* the gate, drawn rather than screenshotted */
+.gate{
+  margin-top:clamp(36px,5vw,56px);
+  display:grid; grid-template-columns:1.25fr .95fr; gap:1px;
+  background:var(--line); border:1px solid var(--line);
+  border-radius:12px; overflow:hidden; box-shadow:var(--shadow);
+}
+@media(max-width:860px){ .gate{grid-template-columns:1fr} }
+.pane{background:var(--panel); min-width:0}
+.pane-head{
+  display:flex; align-items:center; gap:8px; padding:11px 16px;
+  border-bottom:1px solid var(--line-soft); background:var(--panel-2);
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-faint);
+}
+.pane-head .right{margin-left:auto; text-transform:none; letter-spacing:.04em}
+.chat{padding:16px; display:flex; flex-direction:column; gap:12px}
+.msg{font-size:14px; line-height:1.6; max-width:92%}
+.msg .who{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:4px;
+}
+.msg.you{align-self:flex-end; text-align:right}
+.msg.you .bubble{
+  background:var(--accent-soft); border:1px solid var(--accent-line);
+  color:var(--ink); border-radius:10px 10px 2px 10px; padding:9px 13px;
+  display:inline-block; text-align:left;
+}
+.msg.muse .bubble{
+  background:var(--panel-2); border:1px solid var(--line-soft);
+  border-radius:10px 10px 10px 2px; padding:9px 13px; display:inline-block;
+}
+.composer{
+  margin:0 16px 16px; border:1px solid var(--line); border-radius:8px;
+  padding:10px 13px; background:var(--panel-2);
+  font-family:var(--mono); font-size:13px; color:var(--ink-faint);
+  display:flex; align-items:center; gap:2px;
+}
+.rubric{padding:16px}
+.rubric ul{margin:0; padding:0}
+.rubric li{
+  list-style:none; display:grid; grid-template-columns:18px 1fr; gap:10px;
+  align-items:start; padding:9px 0; border-bottom:1px dashed var(--line-soft);
+  font-family:var(--mono); font-size:12.5px; line-height:1.5; color:var(--ink-dim);
+}
+.rubric li:last-child{border-bottom:0}
+.box{
+  width:15px; height:15px; border-radius:3px; border:1.5px solid var(--line);
+  margin-top:3px; display:grid; place-items:center; font-size:10px; color:var(--bg);
+}
+.done .box{background:var(--ok); border-color:var(--ok); color:var(--bg)}
+.done{color:var(--ink)}
+.now .box{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.now{color:var(--ink)}
+.meter{height:3px; background:var(--line-soft); border-radius:2px; overflow:hidden; margin:2px 16px 16px}
+.meter i{display:block; height:100%; width:66.6%; background:var(--accent)}
+.locked-strip{
+  margin:0 16px 16px; padding:10px 13px; border-radius:8px;
+  background:var(--drift-bg); border:1px solid color-mix(in srgb,var(--drift) 32%, transparent);
+  font-family:var(--mono); font-size:11.5px; line-height:1.6; color:var(--drift);
+}
+
+/* ── the question ─────────────────────────────────────────────────────── */
+.split{display:grid; grid-template-columns:1fr 1fr; gap:clamp(20px,3vw,40px); margin-top:34px}
+@media(max-width:800px){ .split{grid-template-columns:1fr} }
+.claim{border-top:2px solid var(--line); padding-top:18px}
+.claim.lit{border-top-color:var(--accent)}
+.claim h3{font-size:19px; margin-bottom:8px}
+.claim p{color:var(--ink-dim); font-size:15px}
+.claim .tag{
+  font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-faint); display:block; margin-bottom:10px;
+}
+.claim.lit .tag{color:var(--accent)}
+
+/* a short line of the story, set as a beat rather than a paragraph */
+.beat{
+  margin-top:30px; font-family:var(--mono); font-size:clamp(13px,1.6vw,15px);
+  line-height:2.1; color:var(--ink-dim); max-width:48ch;
+}
+.beat b{color:var(--ink); font-weight:500}
+
+/* ── phases ───────────────────────────────────────────────────────────── */
+.phase{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
+       gap:clamp(24px,4vw,56px); align-items:start}
+@media(max-width:900px){ .phase{grid-template-columns:1fr} }
+.phase h2{font-size:clamp(25px,3.2vw,34px); letter-spacing:-.01em}
+.phase .lede{margin-top:16px; font-size:16.5px}
+.detail{margin-top:22px; display:flex; flex-direction:column; gap:14px}
+.detail .row{display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:baseline}
+.detail .k{
+  font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--accent); white-space:nowrap; padding-top:2px;
+}
+.detail .v{font-size:14.5px; color:var(--ink-dim)}
+.detail .v b{color:var(--ink); font-weight:600}
+
+figure{margin:0}
+figcaption{
+  font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--ink-faint);
+  margin-top:10px; text-transform:uppercase;
+}
+.card{
+  background:var(--panel); border:1px solid var(--line); border-radius:12px;
+  overflow:hidden; box-shadow:var(--shadow);
+}
+pre{
+  margin:0; padding:15px 17px; overflow-x:auto;
+  font-family:var(--mono); font-size:12.5px; line-height:1.72; color:var(--ink-dim);
+  background:var(--panel-2);
+}
+pre .c{color:var(--ink-faint)}
+pre .s{color:var(--ok)}
+code.inl{font-family:var(--mono); font-size:13px}
+
+/* interactive tutor */
+.asks{display:flex; flex-wrap:wrap; gap:8px; padding:15px 16px 4px}
+.ask{
+  font-family:var(--mono); font-size:12px; line-height:1.4; text-align:left;
+  padding:8px 12px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel-2); color:var(--ink-dim);
+  transition:border-color .15s, color .15s, background .15s;
+}
+.ask:hover{border-color:var(--accent-line); color:var(--ink)}
+.ask[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent); color:var(--ink)}
+.reply{padding:8px 16px 18px; display:flex; flex-direction:column; gap:11px}
+.reply .label{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-faint);
+}
+.reply .said{font-size:14.5px; line-height:1.6}
+.reply .why{
+  font-family:var(--mono); font-size:11.5px; line-height:1.65; color:var(--ink-faint);
+  border-top:1px dashed var(--line-soft); padding-top:10px;
+}
+.mode{
+  display:inline-block; font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; padding:2px 8px; border-radius:999px; margin-right:7px;
+  border:1px solid currentColor;
+}
+.mode.q{color:var(--revision)} .mode.a{color:var(--ok)} .mode.h{color:var(--drift)}
+
+/* ── the loop ─────────────────────────────────────────────────────────── */
+.loop{background:var(--bg-deep)}
+.loop-steps{
+  margin-top:30px; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:12px; overflow:hidden;
+}
+.step{background:var(--panel); padding:20px}
+.step .w{
+  font-family:var(--mono); font-size:15px; font-weight:600; letter-spacing:.06em;
+  color:var(--accent); text-transform:uppercase;
+}
+.step p{font-size:14px; color:var(--ink-dim); margin-top:8px}
+
+/* ── gains ────────────────────────────────────────────────────────────── */
+.gains{display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); gap:1px;
+       margin-top:34px; background:var(--line); border:1px solid var(--line);
+       border-radius:12px; overflow:hidden}
+.gain{background:var(--panel); padding:22px 22px 24px}
+.gain .no{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--ink-faint);
+  display:block; margin-bottom:12px;
+}
+.gain h3{font-size:17.5px; margin-bottom:7px}
+.gain p{font-size:14.5px; color:var(--ink-dim)}
+
+/* ── instructor table ─────────────────────────────────────────────────── */
+.scroll{overflow-x:auto; border:1px solid var(--line); border-radius:12px;
+        background:var(--panel); box-shadow:var(--shadow)}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:14px}
+thead th{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink-faint); text-align:left; font-weight:500;
+  padding:12px 16px; border-bottom:1px solid var(--line); background:var(--panel-2);
+}
+tbody td{padding:12px 16px; border-bottom:1px solid var(--line-soft); vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+td.item{font-family:var(--mono); font-size:12.5px; color:var(--ink)}
+.pill{
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  padding:3px 9px; border-radius:999px; white-space:nowrap;
+}
+.pill.drift{background:var(--drift-bg); color:var(--drift)}
+.pill.bug{background:var(--bug-bg); color:var(--bug)}
+.pill.revision{background:var(--revision-bg); color:var(--revision)}
+.bar{display:flex; align-items:center; gap:9px; min-width:120px}
+.bar .track{flex:1; height:5px; background:var(--line-soft); border-radius:3px;
+            overflow:hidden; min-width:48px}
+.bar .fill{display:block; height:100%; background:var(--accent); border-radius:3px}
+.bar .pct{font-family:var(--mono); font-size:11.5px; color:var(--ink-dim);
+          font-variant-numeric:tabular-nums}
+
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px;
+       background:var(--line); border:1px solid var(--line); border-radius:12px;
+       overflow:hidden; margin-top:30px}
+.stat{background:var(--panel); padding:18px 20px}
+.stat .v{font-family:var(--mono); font-size:25px; font-weight:600; color:var(--ink);
+         font-variant-numeric:tabular-nums; line-height:1.2}
+.stat .k{font-family:var(--mono); font-size:10.5px; letter-spacing:.13em;
+         text-transform:uppercase; color:var(--ink-faint); margin-top:6px}
+
+/* ── under the hood ───────────────────────────────────────────────────── */
+.specs{margin-top:30px; display:grid;
+       grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:26px 34px}
+.spec h3{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+         color:var(--accent); font-weight:500; margin-bottom:9px}
+.spec p{font-size:14.5px; color:var(--ink-dim)}
+.spec code{font-family:var(--mono); font-size:12.5px; color:var(--ink); background:var(--panel-2);
+           padding:1px 5px; border-radius:4px; border:1px solid var(--line-soft)}
+
+/* ── close ────────────────────────────────────────────────────────────── */
+.close{border-bottom:0; background:var(--bg-deep)}
+.close h2{font-size:clamp(24px,3.4vw,36px); max-width:22ch}
+.close .lede{margin-top:18px}
+footer .wrap{
+  padding-block:26px; border-top:1px solid var(--line-soft);
+  display:flex; flex-wrap:wrap; gap:14px 26px; align-items:center;
+  font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); letter-spacing:.04em;
+}
+footer .sp{margin-left:auto}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important; animation-iteration-count:1!important;
+    transition-duration:.001ms!important}
+  .cursor,.caret{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="mark">M<b>U</b>SE</span>
+    <span class="mark-sub">think · plan · code · reflect · improve</span>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#students" class="opt">Students</a>
+      <a href="#instructors">Instructors</a>
+      <a href="#build" class="opt">Under the hood</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ─── hero ──────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="wrap">
+    <h1>The editor stays locked until you can say <em>what you're building</em><span class="cursor" aria-hidden="true"></span></h1>
+
+    <p class="lede">
+      Every programmer remembers the moment. You write your code, you run it,
+      and it doesn't work. So you ask AI, and in seconds you get the answer.
+      The code works.
+    </p>
+    <p class="lede">
+      But did you learn how to solve it, or did you learn how to copy it?
+    </p>
+
+    <p class="stance">
+      That question is what MUSE is built around. We think AI belongs in
+      education. We just think it should be
+      <b>a tutor, not a code generator</b>.
+    </p>
+
+    <!-- A drawn recreation of the specification gate, mid session. -->
+    <div class="gate">
+      <div class="pane">
+        <div class="pane-head">Specification gate <span class="right">draft · v4</span></div>
+        <div class="chat">
+          <div class="msg you"><span class="who">you</span>
+            <span class="bubble">a function that removes duplicates from a list</span></div>
+          <div class="msg muse"><span class="who">muse</span>
+            <span class="bubble">What should the input be called, and what type are the values in it?</span></div>
+          <div class="msg you"><span class="who">you</span>
+            <span class="bubble">a list of integers called items</span></div>
+          <div class="msg muse"><span class="who">muse</span>
+            <span class="bubble">Does the original order survive, or can the result come back in any order?</span></div>
+        </div>
+        <div class="composer"><span class="caret" aria-hidden="true"></span></div>
+        <div class="locked-strip">
+          editor locked · 4 of 6 rubric items answered
+        </div>
+      </div>
+
+      <div class="pane">
+        <div class="pane-head">Rubric <span class="right">4 / 6</span></div>
+        <div class="meter"><i></i></div>
+        <div class="rubric">
+          <ul>
+            <li class="done"><span class="box" aria-hidden="true">✓</span><span>state in one sentence what the function does</span></li>
+            <li class="done"><span class="box" aria-hidden="true">✓</span><span>name the input list and the type of its elements</span></li>
+            <li class="done"><span class="box" aria-hidden="true">✓</span><span>state what is returned and its type</span></li>
+            <li class="done"><span class="box" aria-hidden="true">✓</span><span>state whether the original order is preserved</span></li>
+            <li class="now"><span class="box" aria-hidden="true"></span><span>state the behaviour for an empty list</span></li>
+            <li><span class="box" aria-hidden="true"></span><span>give at least one concrete input/output example</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── the question ──────────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The question</p>
+    <h2 class="band-title" style="max-width:24ch">
+      How do we make AI help students think, instead of thinking for them?
+    </h2>
+
+    <p class="beat">
+      You write your code.<br>
+      You run it.<br>
+      It doesn't work.<br>
+      You ask AI.<br>
+      <b>The code works, and nothing was learned.</b>
+    </p>
+
+    <div class="split">
+      <div class="claim">
+        <span class="tag">what happens now</span>
+        <h3>The answer arrives before the understanding</h3>
+        <p>
+          A student reads "remove duplicates, preserving order" and starts typing.
+          The assistant finishes it. The tests pass. Nobody ever asked what should
+          happen to an empty list, and the student could not tell you, because
+          the question never came up.
+        </p>
+      </div>
+      <div class="claim lit">
+        <span class="tag">what MUSE changes</span>
+        <h3>The thinking happens first, and it gets written down</h3>
+        <p>
+          The same student says what they want to build before they build it:
+          inputs, outputs, edge cases, one worked example. That document is
+          locked. The finished code is then checked against it, so "I never
+          thought about the empty list" becomes something the student can see
+          and has to explain.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── phase 1 ───────────────────────────────────────────────────────── -->
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow"><span class="n">Phase 01</span> Specification gate</p>
+    <div class="phase">
+      <div>
+        <h2>Before a single line of code, say what you actually want to build.</h2>
+        <p class="lede">
+          Not code. Your own words. And when something is unclear, MUSE does not
+          assume. It asks. The editor stays locked until you have thought the
+          problem through clearly enough to start.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k">Enforced</span><span class="v">
+            The rubric is <b>checked in Python, not asked of the model</b>. An empty
+            <b>examples</b> field cannot be talked into counting as answered.</span></div>
+          <div class="row"><span class="k">Guarded</span><span class="v">
+            Anything the model infers from the assignment rather than from your
+            words is <b>discarded before it is stored</b>, so three rubric items can
+            never tick themselves off a sentence you did not write.</span></div>
+          <div class="row"><span class="k">Stuck?</span><span class="v">
+            "I don't know" <b>explains the question</b> and offers real alternatives
+            to choose between. It never answers it for you.</span></div>
+          <div class="row"><span class="k">Escape</span><span class="v">
+            Asked twice about a genuinely ambiguous point, you can say
+            <b>"my answer stands"</b> and move on. The gate is a teacher, not a bouncer.</span></div>
+        </div>
+      </div>
+      <figure>
+        <div class="card">
+          <div class="pane-head">Your specification <span class="right">locked · v7</span></div>
+<pre><span class="c"># frozen the moment the editor unlocked. Your code is</span>
+<span class="c"># checked against exactly this, which is what makes</span>
+<span class="c"># drift measurable instead of arguable.</span>
+{
+  <span class="s">"goal"</span>: <span class="s">"remove duplicate values, keeping the first
+            occurrence of each and the original order"</span>,
+  <span class="s">"inputs"</span>:  [{ name: <span class="s">"items"</span>, type: <span class="s">"list[int]"</span> }],
+  <span class="s">"outputs"</span>: [{ name: <span class="s">"unique"</span>, type: <span class="s">"list[int]"</span> }],
+  <span class="s">"edge_cases"</span>: [<span class="s">"an empty list returns an empty list"</span>],
+  <span class="s">"examples"</span>: [{ input: <span class="s">"[1, 1, 2]"</span>, output: <span class="s">"[1, 2]"</span> }]
+}</pre>
+        </div>
+        <figcaption>Version 7 of 7 · every earlier draft is kept</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── phase 2 ───────────────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow"><span class="n">Phase 02</span> Guided implementation</p>
+    <div class="phase">
+      <div>
+        <h2>Then comes the code. No autocomplete, no solution waiting to be copied.</h2>
+        <p class="lede">
+          The student writes. And when they get stuck, MUSE does not take the
+          problem away from them. Instead of "here is the fixed code", it asks
+          "what value do you expect here?"
+        </p>
+        <p class="lede">
+          Because sometimes the most useful answer is not an answer at all. It is
+          the question that makes you find the answer yourself.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k">No ghost text</span><span class="v">
+            The editor runs with <b>autocomplete and inline suggestions switched off</b>.
+            Nothing types ahead of you.</span></div>
+          <div class="row"><span class="k">Ask freely</span><span class="v">
+            A question about Python gets <b>a straight answer</b>. There is nothing
+            pedagogical about making someone guess what <code class="inl">enumerate</code>
+            does. A question about your own program gets a question back.</span></div>
+          <div class="row"><span class="k">A way out</span><span class="v">
+            Properly stuck, you can take a <b>direct hint</b>. It is given freely and
+            it is counted. The count is yours to look at, not a punishment.</span></div>
+        </div>
+      </div>
+      <figure>
+        <div class="card">
+          <div class="pane-head">Tutor <span class="right">pick one</span></div>
+          <div class="asks" id="asks"></div>
+          <div class="reply" id="reply"></div>
+        </div>
+        <figcaption>Real classifications and responses from the tutor layer</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── phase 3 ───────────────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow"><span class="n">Phase 03</span> Reflection</p>
+    <div class="phase">
+      <div>
+        <h2>When the code is finished, MUSE looks back at where you started.</h2>
+        <p class="lede">
+          What did you say you wanted? What did you actually build? If there is a
+          difference, MUSE does not simply mark it wrong. It asks about it. Now
+          you have to notice it, understand it, and fix it.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k" style="color:var(--drift)">Drift</span><span class="v">
+            Your specification said one thing, your code does another, and
+            <b>nothing in your session shows you noticed</b>.</span></div>
+          <div class="row"><span class="k" style="color:var(--revision)">Revision</span><span class="v">
+            You changed your mind on purpose. Calling it this
+            <b>requires an actual quote</b> from your conversation. No quote, not a revision.</span></div>
+          <div class="row"><span class="k" style="color:var(--bug)">Bug</span><span class="v">
+            The code is trying to do what you said and getting it wrong.</span></div>
+          <div class="row"><span class="k">Required</span><span class="v">
+            Nothing is submitted until <b>every difference has an explanation in
+            your own words</b>.</span></div>
+        </div>
+      </div>
+      <figure>
+        <div class="card">
+          <div class="pane-head">Behavioural diff <span class="right">1 difference</span></div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:13px">
+            <div><span class="pill drift">drift</span></div>
+            <p style="font-size:15px; line-height:1.6">
+              Your specification says the accepted range is <b>18 to 60</b>.
+              Your code accepts <b>16</b>.
+            </p>
+            <p style="font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--ink-dim);
+                      border-left:2px solid var(--accent); padding-left:13px">
+              You said the range should be 18 to 60,<br>
+              but your code accepts 16. What happened?
+            </p>
+            <div style="border-top:1px dashed var(--line-soft); padding-top:12px">
+              <span style="font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+                    text-transform:uppercase; color:var(--ink-faint)">your explanation, required</span>
+              <p style="font-size:14.5px; margin-top:7px; color:var(--ink-dim)">
+                I wrote <code class="inl">&gt;= 16</code> without thinking because I copied the
+                shape of an earlier check. My specification is the one I meant.
+              </p>
+            </div>
+          </div>
+        </div>
+        <figcaption>MUSE does not mark it wrong. It makes you account for it.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── the loop ──────────────────────────────────────────────────────── -->
+<section class="loop">
+  <div class="wrap">
+    <p class="eyebrow">The loop</p>
+    <h2 class="band-title" style="max-width:22ch">MUSE turns writing a program into five steps, in that order.</h2>
+    <div class="loop-steps">
+      <div class="step"><div class="w">Think</div><p>Say what you want to build, in your own words.</p></div>
+      <div class="step"><div class="w">Plan</div><p>Inputs, outputs, edge cases, one worked example.</p></div>
+      <div class="step"><div class="w">Code</div><p>You write it. Nothing types ahead of you.</p></div>
+      <div class="step"><div class="w">Reflect</div><p>Where does the program disagree with the plan?</p></div>
+      <div class="step"><div class="w">Improve</div><p>Explain each difference, then fix it.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── students ──────────────────────────────────────────────────────── -->
+<section id="students">
+  <div class="wrap">
+    <p class="eyebrow">For students</p>
+    <h2 class="band-title" style="max-width:20ch">What you walk away with that a finished assignment does not give you.</h2>
+    <div class="gains">
+      <div class="gain">
+        <span class="no">01</span>
+        <h3>The habit of deciding first</h3>
+        <p>Inputs, outputs, edge cases, one worked example, before a line of code.
+           It is the same discipline behind a design doc, a ticket, an API contract.</p>
+      </div>
+      <div class="gain">
+        <span class="no">02</span>
+        <h3>Edge cases you chose</h3>
+        <p>Empty input, zero, negatives. You decide what happens and write it down, so
+           when your code does something else you can see that it was not your call.</p>
+      </div>
+      <div class="gain">
+        <span class="no">03</span>
+        <h3>Debugging you can do alone</h3>
+        <p>"What value do you expect here?" is the question you will be asking yourself
+           long after the tutor is gone.</p>
+      </div>
+      <div class="gain">
+        <span class="no">04</span>
+        <h3>Words for your own code</h3>
+        <p>Explaining each difference in your own sentences is the part that survives
+           into a code review, a stand up, and an interview.</p>
+      </div>
+      <div class="gain">
+        <span class="no">05</span>
+        <h3>An honest picture of your habits</h3>
+        <p>How many questions you asked, how many were about Python rather than your own
+           program, how many hints you took, how many drafts your plan went through.</p>
+      </div>
+      <div class="gain">
+        <span class="no">06</span>
+        <h3>A record, not a grade</h3>
+        <p>Every draft, question and answer is kept and readable. You can see how your
+           thinking moved, which is the thing a green tick has never shown anyone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── instructors ───────────────────────────────────────────────────── -->
+<section id="instructors">
+  <div class="wrap">
+    <p class="eyebrow">For instructors</p>
+    <div class="phase">
+      <div>
+        <h2>Teachers finally get something they have never really had: visibility into how their students are thinking.</h2>
+        <p class="lede">
+          Not just who finished. Where they struggled, what they misunderstood,
+          and what the whole class needs to learn next.
+        </p>
+        <p class="lede">
+          Every difference is grouped by the thing it was about, so a misconception
+          the whole cohort shares reads as one row instead of thirty separate mistakes.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k">Class view</span><span class="v">
+            Where the class diverged from its own plans. <b>A plain group by, with no AI</b>
+            at read time, so the page is fast and says the same thing twice.</span></div>
+          <div class="row"><span class="k">Student view</span><span class="v">
+            Full plan history, the whole question log with its classifications, and every
+            difference with the student's own explanation.</span></div>
+          <div class="row"><span class="k">On demand</span><span class="v">
+            A written summary of one student's work. It is the <b>only</b> AI call on the
+            dashboard, and it fires on a button, never automatically.</span></div>
+          <div class="row"><span class="k">Rubrics</span><span class="v">
+            Yours. Each item can be a field the system checks in code, or a judgement
+            call, and you set which.</span></div>
+        </div>
+      </div>
+      <figure>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr><th scope="col">What they got wrong</th><th scope="col">Kind</th><th scope="col">Share of class</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="item">edge_case: negative n returns []</td>
+                <td><span class="pill drift">drift</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:50%"></i></span><span class="pct">50%</span></div></td>
+              </tr>
+              <tr>
+                <td class="item">outputs</td>
+                <td><span class="pill drift">drift</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:50%"></i></span><span class="pct">50%</span></div></td>
+              </tr>
+              <tr>
+                <td class="item">examples[0]</td>
+                <td><span class="pill bug">bug</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:38%"></i></span><span class="pct">38%</span></div></td>
+              </tr>
+              <tr>
+                <td class="item">edge_case: empty list returns []</td>
+                <td><span class="pill drift">drift</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:25%"></i></span><span class="pct">25%</span></div></td>
+              </tr>
+              <tr>
+                <td class="item">inputs</td>
+                <td><span class="pill revision">revision</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:25%"></i></span><span class="pct">25%</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <figcaption>Example cohort · half the class made the same silent assumption</figcaption>
+
+        <div class="stats">
+          <div class="stat"><div class="v">80%</div><div class="k">questions about their own code</div></div>
+          <div class="stat"><div class="v">5.9</div><div class="k">mean drafts before coding</div></div>
+          <div class="stat"><div class="v">5</div><div class="k">direct hints taken</div></div>
+        </div>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── dependency profile ────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Dependency profile</p>
+    <div class="phase">
+      <div>
+        <h2>A mirror, pointed at the student and at nobody else by default.</h2>
+        <p class="lede">
+          MUSE counts how you lean on it: total questions, how many were about
+          Python rather than your own program, hints taken, topics you circled
+          back to, how long after opening the assignment you asked for help.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k">Not a grade</span><span class="v">
+            It is never part of marking. It exists so you can notice a pattern you
+            would otherwise not see.</span></div>
+          <div class="row"><span class="k">Not shared</span><span class="v">
+            Student facing by default. Instructor visibility is a
+            <b>per course opt in stored in the data model</b>, not a toggle on a page.
+            Without it, the instructor endpoint refuses the read outright.</span></div>
+        </div>
+      </div>
+      <figure>
+        <div class="card">
+          <div class="pane-head">Your profile <span class="right">self reflection only</span></div>
+          <div style="padding:6px 16px 16px">
+            <div class="rubric" style="padding:0">
+              <ul>
+                <li class="done" style="grid-template-columns:1fr auto"><span>questions asked</span><span style="color:var(--ink)">14</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>about your own code</span><span style="color:var(--ink)">9 · 64%</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>about Python itself</span><span style="color:var(--ink)">5</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>direct hints taken</span><span style="color:var(--drift)">1</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>drafts before coding</span><span style="color:var(--ink)">7</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>first question asked after</span><span style="color:var(--ink)">4 min</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <figcaption>No AI involved · arithmetic over your own session</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── under the hood ────────────────────────────────────────────────── -->
+<section id="build">
+  <div class="wrap">
+    <p class="eyebrow">Under the hood</p>
+    <h2 class="band-title" style="max-width:24ch">
+      The rules students rely on are enforced in code, not requested in a prompt.
+    </h2>
+    <p class="lede" style="margin-top:16px">
+      A model asked nicely not to give away the answer will give away the answer.
+      Everything a student depends on is a check that runs whatever the model says.
+    </p>
+    <div class="specs">
+      <div class="spec">
+        <h3>Rubric floor</h3>
+        <p>An unanswered structural item counts as unmet in Python before any model is
+           consulted. A weak classifier returning <code>gap: null</code> on an empty
+           plan cannot unlock the editor.</p>
+      </div>
+      <div class="spec">
+        <h3>Extraction guard</h3>
+        <p>Fields the model filled in from the assignment text rather than the student's
+           words are dropped, matched back against what was actually typed.</p>
+      </div>
+      <div class="spec">
+        <h3>Sandboxed execution</h3>
+        <p>Every test case runs in a fresh subprocess with a wall clock timeout and, on
+           POSIX, CPU, address space and file size limits.</p>
+      </div>
+      <div class="spec">
+        <h3>Two providers</h3>
+        <p>Mistral first, Groq on failover, behind a single <code>generate_structured()</code>
+           call. A circuit breaker stops retrying a provider that is rate limiting.</p>
+      </div>
+      <div class="spec">
+        <h3>Runs offline</h3>
+        <p>A deterministic stub stands in for both providers, so the whole flow (gate,
+           tutor, reflection) is testable with no API key and no network.</p>
+      </div>
+      <div class="spec">
+        <h3>Everything is kept</h3>
+        <p>Every plan version, gate turn, code snapshot, question and difference is a
+           row. The reflection statistics are a query, not a summary.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── close ─────────────────────────────────────────────────────────── -->
+<section class="close">
+  <div class="wrap">
+    <p class="eyebrow">In short</p>
+    <h2>We don't want AI to become the programmer. We want AI to be the reason the student becomes a better one.</h2>
+    <p class="lede">
+      The future of education is not about choosing between humans and AI. It is
+      about making AI work for human learning. MUSE is deliberately worse at the
+      thing other assistants are best at: it will not hand you a function. What it
+      will do is make sure that by the time you write one, you know exactly what it
+      is supposed to do, and that you are the one who decided.
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>MUSE · a programming tutor that asks instead of answering</span>
+    <span class="sp">Think · Plan · Code · Reflect · Improve</span>
+  </div>
+</footer>
+
+<script>
+/* The tutor demo. Four real shapes of question and what each one gets back.
+   The interesting claim on this page is that they are treated differently, so
+   the demo has to let you try all four yourself. */
+var ASKS = [
+  {
+    q: "what does enumerate() do?",
+    kind: "factual",
+    mode: ["a", "answered"],
+    a: "It pairs each item with its position. <code class=\"inl\">for i, item in enumerate(xs)</code> gives you the index and the value together, starting at 0 unless you pass <code class=\"inl\">start=</code>.",
+    why: "classified factual. It is about Python itself, not about your solution, and nothing is learned by making you guess."
+  },
+  {
+    q: "my list has one number too many, why?",
+    kind: "problem_solving",
+    mode: ["q", "counter question"],
+    a: "How many numbers does your own example say should come back, and how many times does your loop body run for that input?",
+    why: "classified problem_solving. It is about your program. Answering it outright would hand you the fix and take the debugging with it."
+  },
+  {
+    q: "just write the function for me",
+    kind: "problem_solving",
+    mode: ["q", "counter question"],
+    a: "Not that one, it is the assignment. But I will go a step at a time with you: what does your plan say comes back when the list is empty?",
+    why: "refusing is the product, not a limitation. The direct hint button is always there if you are properly stuck."
+  },
+  {
+    q: "I'm stuck. give me a direct hint",
+    kind: "escape hatch",
+    mode: ["h", "direct hint"],
+    a: "Look at the line that decides how many times the loop runs, and compare it with the count in your example.",
+    why: "you asked for it explicitly, so you get it. Recorded in your own dependency profile, visible to you, and never part of any grade."
+  }
+];
+
+var asksEl = document.getElementById("asks");
+var replyEl = document.getElementById("reply");
+
+ASKS.forEach(function (item, index) {
+  var button = document.createElement("button");
+  button.className = "ask";
+  button.type = "button";
+  button.textContent = item.q;
+  button.setAttribute("aria-pressed", index === 1 ? "true" : "false");
+  button.addEventListener("click", function () { show(index); });
+  asksEl.appendChild(button);
+});
+
+function show(index) {
+  var item = ASKS[index];
+  Array.prototype.forEach.call(asksEl.children, function (b, i) {
+    b.setAttribute("aria-pressed", String(i === index));
+  });
+  replyEl.innerHTML =
+    '<span class="label">classified as ' + item.kind + '</span>' +
+    '<p class="said"><span class="mode ' + item.mode[0] + '">' + item.mode[1] + '</span>' + item.a + '</p>' +
+    '<p class="why">' + item.why + '</p>';
+}
+
+/* Opens on the counter question, which is the behaviour worth seeing first. */
+show(1);
+</script>
+</body>
+</html>

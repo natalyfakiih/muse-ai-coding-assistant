@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Instructor View Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel-2:#f1f4f8; --line:#dde2ea; --line-soft:#e8ecf2;
+  --ink:#141822; --ink-dim:#4c5566; --ink-faint:#79839a;
+  --accent:#2b56c4; --accent-soft:#e6ecfd; --accent-line:#bccdf7;
+  --do:#7a4a9c; --do-bg:#f2ebf8; --do-line:#d9c6ea;
+  --warn:#9a6a10; --warn-bg:#fbf2dd;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --panel:#161a21; --panel-2:#1b212a; --line:#2a323e; --line-soft:#1f2530;
+    --ink:#e6e9ef; --ink-dim:#9aa3b3; --ink-faint:#6b7484;
+    --accent:#7aa2f7; --accent-soft:#182031; --accent-line:#3d5a9e;
+    --do:#c3a1e0; --do-bg:#241d2e; --do-line:#453759;
+    --warn:#e0af68; --warn-bg:#2a2113;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --panel:#161a21; --panel-2:#1b212a; --line:#2a323e; --line-soft:#1f2530;
+  --ink:#e6e9ef; --ink-dim:#9aa3b3; --ink-faint:#6b7484;
+  --accent:#7aa2f7; --accent-soft:#182031; --accent-line:#3d5a9e;
+  --do:#c3a1e0; --do-bg:#241d2e; --do-line:#453759;
+  --warn:#e0af68; --warn-bg:#2a2113;
+}
+
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--ink);
+     font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased}
+h1,h2{font-family:var(--serif); margin:0; text-wrap:balance; line-height:1.2}
+p{margin:0}
+.wrap{max-width:780px; margin-inline:auto; padding-inline:clamp(16px,4vw,32px); padding-block:clamp(28px,5vw,56px)}
+
+/* masthead */
+.top{border-bottom:1px solid var(--line); padding-bottom:22px; margin-bottom:34px}
+.kicker{font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase;
+        color:var(--accent); margin-bottom:12px}
+h1{font-size:clamp(27px,4.4vw,38px); letter-spacing:-.01em}
+.sub{margin-top:12px; color:var(--ink-dim); font-size:16px; max-width:58ch}
+.runtime{margin-top:16px; display:flex; flex-wrap:wrap; gap:8px}
+.chip{font-family:var(--mono); font-size:11px; letter-spacing:.06em; padding:4px 10px;
+      border-radius:999px; border:1px solid var(--line); color:var(--ink-dim); background:var(--panel)}
+
+/* preflight */
+.preflight{background:var(--warn-bg); border:1px solid color-mix(in srgb,var(--warn) 34%,transparent);
+           border-radius:10px; padding:18px 20px; margin-bottom:38px}
+.preflight h2{font-size:16px; font-family:var(--sans); font-weight:600; color:var(--warn)}
+.preflight ol{margin:12px 0 0; padding-left:20px; display:flex; flex-direction:column; gap:7px;
+              font-size:14.5px; color:var(--ink-dim)}
+.preflight code{font-family:var(--mono); font-size:13px; background:var(--panel);
+                border:1px solid var(--line); padding:1px 5px; border-radius:4px; color:var(--ink)}
+
+/* beats */
+.beat{margin-bottom:38px; scroll-margin-top:16px}
+.beat-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+           border-bottom:1px solid var(--line-soft); padding-bottom:9px; margin-bottom:18px}
+.beat-n{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--accent);
+        letter-spacing:.1em}
+.beat h2{font-size:21px; flex:1; min-width:0}
+.secs{font-family:var(--mono); font-size:11px; color:var(--ink-faint); letter-spacing:.08em;
+      white-space:nowrap}
+
+.do{background:var(--do-bg); border-left:3px solid var(--do); border-radius:0 8px 8px 0;
+    padding:11px 15px; margin-bottom:16px; font-family:var(--mono); font-size:13px;
+    line-height:1.6; color:var(--ink-dim)}
+.do b{color:var(--do); font-weight:600; letter-spacing:.1em; font-size:11px;
+      text-transform:uppercase; display:block; margin-bottom:5px}
+
+/* the lines you actually say: the most legible thing on the page */
+.say{font-size:clamp(16.5px,2vw,18.5px); line-height:1.72; color:var(--ink);
+     display:flex; flex-direction:column; gap:15px}
+.say p::before{content:""; }
+.say strong{font-weight:600; background:var(--accent-soft); padding:0 4px; border-radius:3px}
+.pause{font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); letter-spacing:.1em;
+       text-transform:uppercase}
+
+.note{margin-top:16px; border:1px solid var(--line); border-radius:8px; background:var(--panel);
+      padding:13px 16px; font-size:14px; color:var(--ink-dim)}
+.note b{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+        color:var(--ink-faint); display:block; margin-bottom:6px}
+
+/* numbers check */
+.numbers{border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:38px;
+         background:var(--panel)}
+.numbers h2{font-size:16px; font-family:var(--sans); font-weight:600; padding:14px 18px;
+            border-bottom:1px solid var(--line); background:var(--panel-2)}
+.numbers table{width:100%; border-collapse:collapse; font-size:14px}
+.numbers td{padding:9px 18px; border-bottom:1px solid var(--line-soft)}
+.numbers tr:last-child td{border-bottom:0}
+.numbers td:last-child{font-family:var(--mono); text-align:right; color:var(--ink);
+                       font-variant-numeric:tabular-nums; white-space:nowrap}
+.numbers td:first-child{color:var(--ink-dim)}
+
+/* q&a */
+.qa{display:flex; flex-direction:column; gap:20px; margin-top:18px}
+.q{border-left:2px solid var(--line); padding-left:16px}
+.q .ask{font-weight:600; font-size:15.5px; margin-bottom:6px}
+.q .ans{font-size:15px; color:var(--ink-dim)}
+
+code.inl{font-family:var(--mono); font-size:.88em; background:var(--panel-2);
+         border:1px solid var(--line-soft); padding:1px 5px; border-radius:4px}
+
+footer{border-top:1px solid var(--line); margin-top:10px; padding-top:20px;
+       font-family:var(--mono); font-size:11.5px; color:var(--ink-faint)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <p class="kicker">Presenter script</p>
+  <h1>Instructor View Walkthrough</h1>
+  <p class="sub">
+    What to click and what to say while demonstrating the MUSE instructor
+    dashboard. Purple blocks are what you do, large text is what you say out loud.
+  </p>
+  <div class="runtime">
+    <span class="chip">≈ 5 minutes</span>
+    <span class="chip">9 beats</span>
+    <span class="chip">1 live click needed</span>
+  </div>
+</div>
+
+<div class="preflight">
+  <h2>Before you present</h2>
+  <ol>
+    <li>Stop uvicorn, then run <code>python -m app.demo --force</code> so the dashboard has a full cohort in it.</li>
+    <li>Restart uvicorn and open <code>/instructor</code>. Check there is no orange banner at the top. If there is, your API keys did not load and the narrative summary in beat 6 will return canned text.</li>
+    <li>Compare the six tiles against the table below. If they differ, read your screen, not this script.</li>
+    <li>Have the student view open in a second tab. Beat 9 ends by switching to it.</li>
+  </ol>
+</div>
+
+<div class="numbers">
+  <h2>What the tiles should read</h2>
+  <table>
+    <tr><td>Students</td><td>8</td></tr>
+    <tr><td>Tutor questions</td><td>84</td></tr>
+    <tr><td>Problem solving</td><td>64%</td></tr>
+    <tr><td>Direct hints taken</td><td>4</td></tr>
+    <tr><td>Mean spec versions</td><td>5.57</td></tr>
+    <tr><td>Discrepancies</td><td>30</td></tr>
+  </table>
+</div>
+
+<!-- 1 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">01</span><h2>Why this screen exists</h2><span class="secs">30 sec</span></div>
+  <div class="do"><b>Do</b>Open <code style="background:none;border:0;padding:0">/instructor</code>. Do not scroll yet. Let the tiles sit on screen.</div>
+  <div class="say">
+    <p>So that was the student side. This is what the teacher sees.</p>
+    <p>Here is the problem it solves. You set an assignment for thirty students. Thirty submissions come back. You can see who passed the tests and who didn't, and that is genuinely all you can see. <strong>You have no idea what any of them actually understood.</strong></p>
+    <p>Everything on this page is built from data the student generated just by working normally. Nobody filled in a survey.</p>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">02</span><h2>Class at a glance</h2><span class="secs">30 sec</span></div>
+  <div class="do"><b>Do</b>Point at the tiles left to right. Do not read all six aloud, pick the two that carry meaning.</div>
+  <div class="say">
+    <p>Eight students, eighty four questions asked.</p>
+    <p>This one matters: <strong>sixty four percent of those questions were about the student's own code</strong>, not about Python. That is the ratio we want. It means they are asking "why is my loop wrong", not "what is a loop".</p>
+    <p>And four direct hints taken across the whole cohort. The hint button is always available. Almost nobody reaches for it.</p>
+  </div>
+  <div class="note"><b>If the ratio looks low</b>Do not defend it. Say: in a real course that number is the thing you would watch week to week. A class drifting toward factual questions is a class that stopped debugging.</div>
+</div>
+
+<!-- 3 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">03</span><h2>The headline finding</h2><span class="secs">60 sec</span></div>
+  <div class="do"><b>Do</b>Scroll to "Where the class diverged from its own specifications". Put your cursor on the top row and leave it there while you talk.</div>
+  <div class="say">
+    <p>This is the panel I would actually open on a Monday morning.</p>
+    <p>Every difference between what a student promised and what they built, grouped by the thing it was about. And look at the top row.</p>
+    <p class="pause">— pause, let them read it —</p>
+    <p><strong>Six of the eight students made the same mistake.</strong> They all said that a negative input should return an empty list. Their code does return an empty list. But not for the reason they gave.</p>
+    <p>In Python, <code class="inl">range</code> of a negative number is just empty, so the loop never runs. They got the right answer by accident. Not one of them decided it.</p>
+    <p>That is not thirty separate mistakes to mark. That is <strong>one sentence I need to say to the whole room tomorrow.</strong></p>
+  </div>
+  <div class="note"><b>Why this lands</b>It is the strongest thirty seconds in the demo. Do not rush it and do not follow it with another statistic. Let it sit, then move to the categories.</div>
+</div>
+
+<!-- 4 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">04</span><h2>The three kinds of difference</h2><span class="secs">45 sec</span></div>
+  <div class="do"><b>Do</b>Point at the coloured pills in the Category column: amber, red, blue.</div>
+  <div class="say">
+    <p>Not every difference means the same thing, so we sort them into three.</p>
+    <p><strong>Drift</strong> is the amber one. The spec said one thing, the code does another, and nothing in their session shows they noticed. That is the interesting one, pedagogically.</p>
+    <p><strong>Bug</strong> in red. The code is trying to do what they said and getting it wrong. That is ordinary. That is just programming.</p>
+    <p><strong>Revision</strong> in blue. They changed their mind on purpose, and that is completely fine. But here is the part I am proud of: <strong>the system cannot call something a revision unless it can quote the student saying so.</strong> No quote in the conversation log, it is not a revision.</p>
+  </div>
+  <div class="note"><b>If asked why that matters</b>Because otherwise the model gives everyone the benefit of the doubt. "They probably meant to" is exactly the judgement we do not want an AI making about a student's work.</div>
+</div>
+
+<!-- 5 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">05</span><h2>One student, in depth</h2><span class="secs">60 sec</span></div>
+  <div class="do"><b>Do</b>Scroll to the Students table. Point at the cohort column, then click <b style="display:inline;font-size:inherit;letter-spacing:0;text-transform:none;color:inherit">Nour Z.</b></div>
+  <div class="say">
+    <p>You can also go one student at a time.</p>
+    <p>Look at the shape of this table first. The A cohort took seven or eight drafts to write their specification and asked six to eight questions. Down here, fourteen drafts and seventeen questions. <strong>Same assignment, completely different amount of struggle</strong>, and none of it shows up in a grade.</p>
+    <p>Let me open one.</p>
+    <p class="pause">— click, then scroll the right hand column —</p>
+    <p>Here is every version of her specification, in order. You can watch her work out what the function was supposed to do. Here is every question she asked and how it was classified. And down here, each difference we found, with <strong>her own explanation of it, in her words</strong>, which she had to write before the submission was accepted.</p>
+  </div>
+</div>
+
+<!-- 6 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">06</span><h2>The summary button</h2><span class="secs">30 sec</span></div>
+  <div class="do"><b>Do</b>Click "Generate for selected student". It takes a couple of seconds. Keep talking through it.</div>
+  <div class="say">
+    <p>If you want it in prose, there is a button.</p>
+    <p>And this is the only AI call on this entire page. <strong>Everything else you have seen is a database query.</strong> Not a model deciding anything, not a summary that might be wrong. A group by.</p>
+    <p>That is deliberate. A dashboard an instructor cannot trust is worse than no dashboard, so the analysis is arithmetic and the writing is a button you press on purpose.</p>
+  </div>
+  <div class="note"><b>If it is slow or fails</b>Say so plainly and move on: it is a free tier API and it falls back to a second provider. Then point at the provider log in beat 8. A visible failover is a better story than a hidden one.</div>
+</div>
+
+<!-- 7 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">07</span><h2>The line we would not cross</h2><span class="secs">35 sec</span></div>
+  <div class="do"><b>Do</b>Scroll to the dependency profile visibility panel at the bottom right.</div>
+  <div class="say">
+    <p>One more thing, and it is the design decision I would defend hardest.</p>
+    <p>MUSE also builds a dependency profile: how many hints a student took, how quickly they asked for help, which topics they kept circling. Useful for a student to see about themselves.</p>
+    <p>It is <strong>student facing by default, and an instructor cannot see it</strong> unless the course explicitly opts in. And that is not a checkbox on this page. It is stored in the data model, and the API refuses the request outright without it.</p>
+    <p>Because the moment a student thinks asking for help is being counted against them, they stop asking. <strong>And then the tutor is useless.</strong></p>
+  </div>
+</div>
+
+<!-- 8 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">08</span><h2>The provider log</h2><span class="secs">20 sec · optional</span></div>
+  <div class="do"><b>Do</b>Only include this for a technical audience, or if beat 6 was slow. Point at the provider log panel.</div>
+  <div class="say">
+    <p>Quick engineering note. Two providers: Mistral first, Groq on failover.</p>
+    <p>Roughly <strong>half of these calls fell back</strong>, because the free Mistral tier rate limits hard. There is a circuit breaker so we stop retrying a provider that is refusing us, which took the average call from about four seconds to about one and a half.</p>
+    <p>Every call is logged. If it gets slow in front of you, this panel tells you why.</p>
+  </div>
+</div>
+
+<!-- 9 -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">09</span><h2>Close</h2><span class="secs">25 sec</span></div>
+  <div class="do"><b>Do</b>Scroll back up to the divergence panel. End on the 75% row, not on a tile.</div>
+  <div class="say">
+    <p>So to close the loop.</p>
+    <p>The student side makes them decide what they are building before they can type. This side turns all those decisions into <strong>the first honest answer to "what did my class actually not understand?"</strong></p>
+    <p>Not who finished. What they misunderstood, and what I need to teach next.</p>
+  </div>
+</div>
+
+<!-- q&a -->
+<div class="beat">
+  <div class="beat-head"><span class="beat-n">QA</span><h2>Questions you should expect</h2><span class="secs">prep</span></div>
+  <div class="qa">
+    <div class="q">
+      <p class="ask">Is this real data or did you make it up?</p>
+      <p class="ans">Say it straight: it is generated demo data, written deliberately so the panels have something to show, and the generator is in the repo. The system runs on real student sessions, and the pipeline producing these rows is the same one either way. Do not let anyone catch you implying it is a real cohort.</p>
+    </div>
+    <div class="q">
+      <p class="ask">Couldn't a student just paste the assignment into the spec?</p>
+      <p class="ans">They could, and it would not get them far. There is a guard that drops anything the model pulled from the assignment text rather than from what the student typed. You do not get credit for an answer you never gave.</p>
+    </div>
+    <div class="q">
+      <p class="ask">What stops the AI just giving away the answer?</p>
+      <p class="ans">Nothing, if you only ask it nicely in a prompt. So the rules are not in the prompt. The rubric check is Python, the sandbox is a subprocess with real limits, and the extraction guard is a string comparison. The model is asked for phrasing, not for permission.</p>
+    </div>
+    <div class="q">
+      <p class="ask">Does this scale to a real class of two hundred?</p>
+      <p class="ans">The dashboard is a group by, so reading scales fine. The cost is the tutor calls during a session, and those are per student. Be honest: that is the number you would have to watch, and it is why the classification tier uses a small model.</p>
+    </div>
+    <div class="q">
+      <p class="ask">Isn't this just making students do more work?</p>
+      <p class="ans">Yes, and that is the point, but do not say it that way. Say: it moves the work earlier. The specification is ten minutes that saves an hour of debugging something you never defined. That is the same trade a design doc makes.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  MUSE · instructor dashboard walkthrough · figures from a fresh <code style="font-family:inherit">python -m app.demo</code> run
+</footer>
+
+</div>
+</body>
+</html>

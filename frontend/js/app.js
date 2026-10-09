@@ -158,6 +158,7 @@ function phase(number) {
   state.phase = number;
   state.maxPhase = Math.max(state.maxPhase || 1, number);
   [1, 2, 3].forEach((n) => $(`phase-${n}`).classList.toggle("hidden", n !== number));
+  ollieForPhase(number);
 
   document.querySelectorAll(".phase").forEach((element) => {
     const n = Number(element.dataset.phase);
@@ -191,6 +192,11 @@ function renderPhase1Mode() {
   const chat = document.querySelector("#phase-1 .chat");
   chat.classList.toggle("readonly", state.locked);
   $("gate-locked-notice").classList.toggle("hidden", !state.locked);
+  if (state.locked && window.OLLIE) {
+    const intro = $("ollie-intro");
+    if (intro) intro.innerHTML = OLLIE.avatar("cheering", { size: 46 }) +
+      `<p class="t">${OLLIE.line("gate_unlocked")}</p>`;
+  }
   $("gate-input").disabled = state.locked;
   $("gate-send").disabled = state.locked;
   $("gate-dont-know").disabled = state.locked;
@@ -236,16 +242,75 @@ function summariseVersion(content) {
   return bits.join(" · ");
 }
 
-function bubble(container, role, text, meta) {
+/* Ollie introduces himself once, at the top of the gate. */
+function renderOllieIntro() {
+  const host = $("ollie-intro");
+  if (!host || !window.OLLIE) return;
+  host.innerHTML = OLLIE.avatar("asking", { size: 46 }) +
+    `<p class="t"><b>Hi, I'm Ollie.</b> I won't write your code — that part is
+     yours. What I'll do is ask until we both know exactly what you're building,
+     then stay with you while you build it.</p>`;
+}
+
+/* Ollie turns up in all three phases, not only in the chat. One short line
+   about the work in front of them — never a nudge, never small talk. */
+function ollieSays(slotId, mood, text) {
+  const host = $(slotId);
+  if (!host || !window.OLLIE || !text) return;
+  host.innerHTML = OLLIE.avatar(mood, { size: slotId === "ollie-coding" ? 32 : 38 }) +
+    `<p class="ollie-line">${text.replace(/[<>&]/g, "")}</p>`;
+  host.classList.remove("hidden");
+}
+
+function ollieForPhase(number) {
+  if (!window.OLLIE) return;
+  if (number === 2) {
+    ollieSays("ollie-coding", "asking", OLLIE.line("coding_start"));
+  } else if (number === 3 && state.submission) {
+    const clean = !state.submission.diff_results.length;
+    ollieSays("ollie-reflect", clean ? "cheering" : "gentle",
+              OLLIE.line(clean ? "reflect_clean" : "reflect_diffs"));
+  }
+}
+
+function bubble(container, role, text, meta, mood) {
   const element = document.createElement("div");
   element.className = `msg ${role}`;
-  element.textContent = text;
-  if (meta) {
-    const span = document.createElement("span");
-    span.className = "meta";
-    span.innerHTML = meta;
-    element.appendChild(span);
+
+  if (role === "muse" && window.OLLIE) {
+    // Ollie's lines get his face and his name. A question lands differently
+    // from someone you recognise than from an unlabelled box.
+    element.innerHTML = OLLIE.avatar(mood || "asking", { size: 32 });
+    const body = document.createElement("div");
+    body.className = "ollie-body";
+
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = "Ollie";
+    body.appendChild(who);
+
+    const line = document.createElement("div");
+    line.className = "line";
+    line.textContent = text;
+    body.appendChild(line);
+
+    if (meta) {
+      const span = document.createElement("span");
+      span.className = "meta";
+      span.innerHTML = meta;
+      body.appendChild(span);
+    }
+    element.appendChild(body);
+  } else {
+    element.textContent = text;
+    if (meta) {
+      const span = document.createElement("span");
+      span.className = "meta";
+      span.innerHTML = meta;
+      element.appendChild(span);
+    }
   }
+
   container.appendChild(element);
   container.scrollTop = container.scrollHeight;
   return element;
@@ -254,7 +319,13 @@ function bubble(container, role, text, meta) {
 function thinking(container) {
   const element = document.createElement("div");
   element.className = "msg muse thinking";
-  element.textContent = "thinking";
+  if (window.OLLIE) {
+    element.innerHTML = OLLIE.avatar("thinking", { size: 32 }) +
+      `<div class="ollie-body"><span class="who">Ollie</span>
+       <div class="line">thinking…</div></div>`;
+  } else {
+    element.textContent = "thinking";
+  }
   container.appendChild(element);
   container.scrollTop = container.scrollHeight;
   return element;
@@ -360,6 +431,7 @@ function renderOptions(options) {
 
 /* --------------------------------------------------------------- phase 1 */
 async function loadSpecification() {
+  renderOllieIntro();
   const data = await api(`/assignments/${state.assignmentId}/specification?student_id=${state.studentId}`);
   state.assignment = data.assignment;
   state.rubric = data.rubric || [];
@@ -385,7 +457,7 @@ async function loadSpecification() {
 
   $("gate-messages").innerHTML = "";
   bubble($("gate-messages"), "system",
-    "Before the editor unlocks, say what you're going to build. MUSE asks one " +
+    "Before the editor unlocks, say what you're going to build. Ollie asks one " +
     "question at a time until every rubric item is answered.");
 
   if (data.locked) {
@@ -433,7 +505,8 @@ async function sendGateMessage() {
     state.lastItemsMet = result.items_met || 0;
 
     if (result.shortfall) {
-      bubble($("gate-messages"), "muse", result.shortfall).classList.add("shortfall");
+      bubble($("gate-messages"), "muse", result.shortfall, null, "gentle")
+      .classList.add("shortfall");
     }
     if (result.message && result.question) bubble($("gate-messages"), "system", result.message);
     state.gateTurns += 1;
@@ -714,6 +787,9 @@ async function submitForReflection() {
     banner("");
     phase(3);
     renderSubmission(result);
+    ollieSays("ollie-reflect",
+              result.diff_results.length ? "gentle" : "cheering",
+              OLLIE.line(result.diff_results.length ? "reflect_diffs" : "reflect_clean"));
     loadProfile();
     loadSessionStats();
   } catch (error) {
@@ -869,6 +945,128 @@ const statGroup = (title, lines) =>
   `<div class="stat-group"><h4>${escapeHtml(title)}</h4>
    <div class="stat-lines">${lines.join("")}</div></div>`;
 
+/* ------------------------------------------------- the student's own view */
+/* Same engine and the same charts the instructor sees, scoped to this student.
+   The status tier is deliberately absent: the API does not send it to a
+   student viewer, so it is not hidden in the page, it was never fetched. */
+
+const MY_AREA_LABELS = {
+  specification: "Writing your specification",
+  edge_cases: "Boundary and edge cases",
+  types: "Return types and shapes",
+  examples: "Concrete examples",
+  debugging: "Debugging your own code",
+  reflection: "Explaining your own work",
+  independence: "Working without hints",
+};
+
+async function renderMyDashboard() {
+  const host = $("my-dashboard");
+  if (!host || !state.studentId || !window.MUSE_CHARTS) return;
+  let data;
+  try {
+    data = await api(`/students/${state.studentId}/insights`);
+  } catch {
+    host.innerHTML = `<p class="tagline">Not available yet.</p>`;
+    return;
+  }
+
+  const t = data.totals, norms = data.class_norms;
+  const mix = [
+    { label: "about your own code", value: t.questions_own_code, tone: "a" },
+    { label: "about Python", value: t.questions - t.questions_own_code, tone: "b" },
+  ];
+  const diffs = [
+    { label: "drift", value: data.difference_mix.drift || 0, tone: "warn" },
+    { label: "bug", value: data.difference_mix.bug || 0, tone: "bad" },
+    { label: "revision", value: data.difference_mix.revision || 0, tone: "a" },
+  ];
+  const timings = data.timings.map((item) => `
+    <div class="dash-attempt">
+      <div class="dash-attempt-head">
+        <b>${escapeHtml(item.entry_point || "assignment")}</b>
+        <span>${item.solved ? "solved" : item.submitted ? "differences still open"
+                                       : item.locked ? "not submitted" : "in progress"}</span>
+      </div>
+      ${MUSE_CHARTS.stack([
+        { label: "specification", value: item.specification_seconds || 0,
+          display: MUSE_CHARTS.human(item.specification_seconds), tone: "a" },
+        { label: "coding", value: item.coding_seconds || 0,
+          display: MUSE_CHARTS.human(item.coding_seconds), tone: "b" },
+      ], { empty: "No time recorded yet." })}
+      ${MUSE_CHARTS.timeline(item.retry_gaps_seconds,
+        { attempts: item.submissions, solved: item.solved, empty: "Not submitted yet." })}
+    </div>`).join("");
+
+  const areas = Object.entries(data.areas)
+    .map(([k, v]) => ({ label: MY_AREA_LABELS[k] || k, score: v.score }))
+    .sort((a, b) => b.score - a.score);
+
+  host.innerHTML = `
+    <div class="dash-grid">
+      <section class="panel half">
+        <h3 class="panel-h">At a glance</h3>
+        <div class="meter-row">
+          ${MUSE_CHARTS.meter("Questions about your own code", t.questions_own_code,
+              t.questions, { caption: `${t.questions_own_code} of ${t.questions}` })}
+          ${MUSE_CHARTS.meter("Differences you explained", t.differences_explained,
+              t.differences, { caption: `${t.differences_explained} of ${t.differences}` })}
+          ${MUSE_CHARTS.meter("Exercises solved", t.assignments_solved,
+              t.assignments_started, { caption: `${t.assignments_solved} of ${t.assignments_started}` })}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3 class="panel-h">Compared with the class</h3>
+        <div class="dash-compare">
+          ${MUSE_CHARTS.compare("Your time per exercise", t.mean_total_seconds,
+              norms.total_seconds, { format: MUSE_CHARTS.human })}
+          ${MUSE_CHARTS.compare("Hints you took", t.hints, Math.round(norms.hints * 10) / 10)}
+        </div>
+        <p class="ch-note">The line is the class. Either side of it is not a score.</p>
+      </section>
+
+      <section class="panel wide">
+        <h3 class="panel-h">Where your time went
+          <span class="panel-note">specification vs coding</span></h3>
+        ${timings ? `<div class="attempt-grid">${timings}</div>`
+                  : `<p class="dash-none">Nothing submitted yet.</p>`}
+      </section>
+
+      <section class="panel">
+        <h3 class="panel-h">What you asked about</h3>
+        ${MUSE_CHARTS.stack(mix, { empty: "You haven't asked anything yet." })}
+      </section>
+
+      <section class="panel">
+        <h3 class="panel-h">Kinds of difference found</h3>
+        ${MUSE_CHARTS.stack(diffs, { empty: "No differences found." })}
+      </section>
+
+      <section class="panel wide">
+        <h3 class="panel-h">Your strengths and weak spots</h3>
+        ${MUSE_CHARTS.diverging(areas, {
+            empty: "Not enough work yet to tell.",
+            leftLabel: "worth practising", rightLabel: "solid" })}
+      </section>
+
+      ${data.plan.length ? `
+      <section class="panel wide">
+        <h3 class="panel-h">What to try next</h3>
+        <div class="plan-grid">${data.plan.map((item) => `
+          <div class="plan">
+            <div class="plan-head">
+              <span class="plan-area">${escapeHtml(item.area_label)}</span>
+              <h4>${escapeHtml(item.title)}</h4>
+            </div>
+            <p class="plan-because">Because: ${escapeHtml(item.because)}</p>
+            ${item.leaning_on ? `<p class="plan-via">${escapeHtml(item.leaning_on)}</p>` : ""}
+            <ol class="plan-steps">${item.steps.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ol>
+          </div>`).join("")}</div>
+      </section>` : ""}
+    </div>`;
+}
+
 async function loadSessionStats() {
   let data;
   try {
@@ -883,7 +1081,7 @@ async function loadSessionStats() {
   $("session-stats").innerHTML = [
     statGroup("Specification", [
       statLine("Versions written", one.versions),
-      statLine("Questions MUSE asked", one.questions_asked),
+      statLine("Questions Ollie asked", one.questions_asked),
       statLine("Answers that needed a second go", one.asked_again,
                one.asked_again > 2 ? "warn" : ""),
       statLine("\u201cI don't know\u201d presses", one.dont_know_presses),
@@ -908,12 +1106,13 @@ async function loadSessionStats() {
       statLine("Explanations written", three.explanations_written),
     ]),
     statGroup("Overall", [
-      statLine("Questions MUSE asked you", data.totals.ai_questions),
+      statLine("Questions Ollie asked you", data.totals.ai_questions),
       statLine("Messages you sent", data.totals.student_messages),
     ]),
   ].join("");
 
   renderTranscript(data.transcript);
+  renderMyDashboard();
 }
 
 function renderTranscript(entries) {

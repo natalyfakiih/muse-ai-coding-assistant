@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MUSE</title>
+<meta name="description" content="MUSE is a programming tutor built on four steps: Map, Understand, Solve, Explain. It asks students to define the problem before they write code, answers questions with better questions, and shows every place a program differs from the plan behind it.">
+<meta name="color-scheme" content="dark light">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="MUSE">
+<meta property="og:description" content="Map. Understand. Solve. Explain. AI that helps students think instead of thinking for them.">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f1115'/%3E%3Ctext x='16' y='22' font-family='ui-monospace,monospace' font-size='15' font-weight='600' fill='%237aa2f7' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+
+<style>
+/* ── tokens ─────────────────────────────────────────────────────────────
+   Dark first, taken from the product's own stylesheet so the site and the
+   thing it describes read as one object. Light is a consistent swap of the
+   same roles, not an inversion.                                          */
+:root{
+  --bg:#f4f6f9;  --bg-deep:#e8ecf2;  --panel:#ffffff;  --panel-2:#f8fafc;
+  --line:#d8dee8; --line-soft:#e6eaf1;
+  --ink:#141822;  --ink-dim:#4c5566; --ink-faint:#78829a;
+  --accent:#2b56c4; --accent-soft:#e4ebfd; --accent-line:#b9cbf6;
+  --ok:#2f7d45;   --drift:#9a6a10;   --revision:#2b56c4; --bug:#b3253f;
+  --ok-bg:#e6f4ea; --drift-bg:#fbf1dc; --revision-bg:#e4ebfd; --bug-bg:#fce8ec;
+  --shadow:0 1px 2px rgba(20,24,34,.06), 0 8px 28px -18px rgba(20,24,34,.35);
+
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --serif:"IBM Plex Serif",Georgia,"Times New Roman",serif;
+
+  --band:clamp(52px,7vw,96px);
+  --gutter:clamp(18px,5vw,48px);
+  --measure:66ch;
+
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --bg-deep:#0a0c10; --panel:#161a21; --panel-2:#1b212a;
+    --line:#262d38; --line-soft:#1e242e;
+    --ink:#e6e9ef; --ink-dim:#97a0b0; --ink-faint:#6b7484;
+    --accent:#7aa2f7; --accent-soft:#18203150; --accent-line:#3d5a9e;
+    --ok:#7fd18c; --drift:#e0af68; --revision:#7aa2f7; --bug:#f7768e;
+    --ok-bg:#15241a; --drift-bg:#2a2113; --revision-bg:#161f33; --bug-bg:#2c1720;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -26px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --bg-deep:#0a0c10; --panel:#161a21; --panel-2:#1b212a;
+  --line:#262d38; --line-soft:#1e242e;
+  --ink:#e6e9ef; --ink-dim:#97a0b0; --ink-faint:#6b7484;
+  --accent:#7aa2f7; --accent-soft:#18203150; --accent-line:#3d5a9e;
+  --ok:#7fd18c; --drift:#e0af68; --revision:#7aa2f7; --bug:#f7768e;
+  --ok-bg:#15241a; --drift-bg:#2a2113; --revision-bg:#161f33; --bug-bg:#2c1720;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 18px 40px -26px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--sans); font-size:16px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+img{max-width:100%}
+h1,h2,h3{font-family:var(--serif); font-weight:600; text-wrap:balance; margin:0; line-height:1.22}
+p{margin:0}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+
+.wrap{width:100%; max-width:1120px; margin-inline:auto; padding-inline:var(--gutter)}
+
+/* A `1fr` grid track takes its min width from its content, so one wide <pre>
+   or table pushes the whole page sideways at phone width. Every grid child
+   here may shrink; the wide things scroll inside their own box. */
+.phase > *, .split > *, .gate > *, .gains > *, .stats > *, .specs > *{min-width:0}
+figure, .scroll, .card{max-width:100%; min-width:0}
+
+/* ── masthead ─────────────────────────────────────────────────────────── */
+.masthead{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:40;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+}
+.masthead .wrap{display:flex; align-items:center; gap:18px; padding-block:14px}
+.mark{font-family:var(--mono); font-weight:600; font-size:17px; letter-spacing:.24em; color:var(--ink)}
+.mark b{color:var(--accent); font-weight:600}
+.mark-sub{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+  color:var(--ink-faint); text-transform:lowercase;
+}
+.masthead nav{margin-left:auto; display:flex; gap:20px; align-items:center}
+.masthead nav a{
+  font-family:var(--mono); font-size:12px; letter-spacing:.08em;
+  color:var(--ink-dim); text-decoration:none;
+}
+.masthead nav a:hover{color:var(--ink)}
+@media(max-width:720px){ .mark-sub,.masthead nav a.opt{display:none} }
+
+/* ── generic band ─────────────────────────────────────────────────────── */
+section{border-bottom:1px solid var(--line-soft)}
+section > .wrap{padding-block:var(--band)}
+.eyebrow{
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--ink-faint);
+  display:flex; align-items:center; gap:10px; margin-bottom:22px;
+}
+.eyebrow::after{content:""; flex:1; height:1px; background:var(--line); min-width:20px}
+.eyebrow .n{color:var(--accent); font-weight:600}
+.lede{font-size:clamp(17px,1.9vw,20px); color:var(--ink-dim); max-width:var(--measure)}
+.lede + .lede{margin-top:16px}
+h2.band-title{font-size:clamp(24px,3.2vw,33px)}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.hero > .wrap{padding-block:clamp(44px,6vw,78px) var(--band)}
+.hero h1{font-size:clamp(34px,5.4vw,60px); letter-spacing:-.015em; max-width:17ch}
+.hero h1 em{font-style:normal; color:var(--accent)}
+.hero .lede{margin-top:24px; font-size:clamp(17px,2vw,21px); line-height:1.55}
+.stance{
+  margin-top:30px; padding:16px 20px; border-left:2px solid var(--accent);
+  background:var(--accent-soft); max-width:var(--measure);
+  font-family:var(--mono); font-size:13.5px; line-height:1.7; color:var(--ink-dim);
+}
+.stance b{color:var(--ink); font-weight:600}
+
+/* the cursor that stands in for the full stop */
+.cursor{
+  display:inline-block; width:.5em; height:.82em; margin-left:.1em;
+  background:var(--accent); vertical-align:-.04em;
+  animation:blink 1.15s steps(1) infinite;
+}
+.caret{width:7px; height:15px; background:var(--accent); display:inline-block;
+       animation:blink 1.15s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* the gate, drawn rather than screenshotted */
+.gate{
+  margin-top:clamp(36px,5vw,56px);
+  display:grid; grid-template-columns:1.25fr .95fr; gap:1px;
+  background:var(--line); border:1px solid var(--line);
+  border-radius:12px; overflow:hidden; box-shadow:var(--shadow);
+}
+@media(max-width:860px){ .gate{grid-template-columns:1fr} }
+.pane{background:var(--panel); min-width:0}
+.pane-head{
+  display:flex; align-items:center; gap:8px; padding:11px 16px;
+  border-bottom:1px solid var(--line-soft); background:var(--panel-2);
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-faint);
+}
+.pane-head .right{margin-left:auto; text-transform:none; letter-spacing:.04em}
+.chat{padding:16px; display:flex; flex-direction:column; gap:12px}
+.msg{font-size:14px; line-height:1.6; max-width:92%}
+.msg .who{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:4px;
+}
+.msg.you{align-self:flex-end; text-align:right}
+.msg.you .bubble{
+  background:var(--accent-soft); border:1px solid var(--accent-line);
+  color:var(--ink); border-radius:10px 10px 2px 10px; padding:9px 13px;
+  display:inline-block; text-align:left;
+}
+.msg.muse .bubble{
+  background:var(--panel-2); border:1px solid var(--line-soft);
+  border-radius:10px 10px 10px 2px; padding:9px 13px; display:inline-block;
+}
+.composer{
+  margin:0 16px 16px; border:1px solid var(--line); border-radius:8px;
+  padding:10px 13px; background:var(--panel-2);
+  font-family:var(--mono); font-size:13px; color:var(--ink-faint);
+  display:flex; align-items:center; gap:2px;
+}
+.rubric{padding:16px}
+.rubric ul{margin:0; padding:0}
+.rubric li{
+  list-style:none; display:grid; grid-template-columns:18px 1fr; gap:10px;
+  align-items:start; padding:9px 0; border-bottom:1px dashed var(--line-soft);
+  font-family:var(--mono); font-size:12.5px; line-height:1.5; color:var(--ink-dim);
+}
+.rubric li:last-child{border-bottom:0}
+.box{
+  width:15px; height:15px; border-radius:3px; border:1.5px solid var(--line);
+  margin-top:3px; display:grid; place-items:center; font-size:10px; color:var(--bg);
+}
+.done .box{background:var(--ok); border-color:var(--ok); color:var(--bg)}
+.done{color:var(--ink)}
+.now .box{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.now{color:var(--ink)}
+.meter{height:3px; background:var(--line-soft); border-radius:2px; overflow:hidden; margin:2px 16px 16px}
+.meter i{display:block; height:100%; width:66.6%; background:var(--accent)}
+.locked-strip{
+  margin:0 16px 16px; padding:10px 13px; border-radius:8px;
+  background:var(--drift-bg); border:1px solid color-mix(in srgb,var(--drift) 32%, transparent);
+  font-family:var(--mono); font-size:11.5px; line-height:1.6; color:var(--drift);
+}
+
+/* ── the question ─────────────────────────────────────────────────────── */
+.split{display:grid; grid-template-columns:1fr 1fr; gap:clamp(20px,3vw,40px); margin-top:34px}
+@media(max-width:800px){ .split{grid-template-columns:1fr} }
+.claim{border-top:2px solid var(--line); padding-top:18px}
+.claim.lit{border-top-color:var(--accent)}
+.claim h3{font-size:19px; margin-bottom:8px}
+.claim p{color:var(--ink-dim); font-size:15px}
+.claim .tag{
+  font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-faint); display:block; margin-bottom:10px;
+}
+.claim.lit .tag{color:var(--accent)}
+
+/* a short line of the story, set as a beat rather than a paragraph */
+.beat{
+  margin-top:30px; font-family:var(--mono); font-size:clamp(13px,1.6vw,15px);
+  line-height:2.1; color:var(--ink-dim); max-width:48ch;
+}
+.beat b{color:var(--ink); font-weight:500}
+
+/* ── phases ───────────────────────────────────────────────────────────── */
+.phase{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
+       gap:clamp(24px,4vw,56px); align-items:start}
+@media(max-width:900px){ .phase{grid-template-columns:1fr} }
+.phase h2{font-size:clamp(25px,3.2vw,34px); letter-spacing:-.01em}
+.phase .lede{margin-top:16px; font-size:16.5px}
+.detail{margin-top:26px; display:flex; flex-direction:column; gap:20px}
+.detail .row{border-left:2px solid var(--line); padding-left:16px}
+.detail .k{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); display:block; margin-bottom:7px;
+}
+.detail .v{font-size:14.5px; color:var(--ink-dim); display:block}
+.detail .v + .v{margin-top:8px}
+.detail .v b{color:var(--ink); font-weight:600}
+.bullets{margin:9px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:5px}
+.bullets li{
+  font-family:var(--mono); font-size:12.5px; line-height:1.55; color:var(--ink-dim);
+  padding-left:15px; position:relative;
+}
+.bullets li::before{content:"›"; position:absolute; left:0; color:var(--accent)}
+.sub-label{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink-faint); display:block; margin:26px 0 -18px;
+}
+
+figure{margin:0}
+figcaption{
+  font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--ink-faint);
+  margin-top:10px; text-transform:uppercase;
+}
+.card{
+  background:var(--panel); border:1px solid var(--line); border-radius:12px;
+  overflow:hidden; box-shadow:var(--shadow);
+}
+pre{
+  margin:0; padding:15px 17px; overflow-x:auto;
+  font-family:var(--mono); font-size:12.5px; line-height:1.72; color:var(--ink-dim);
+  background:var(--panel-2);
+}
+pre .c{color:var(--ink-faint)}
+pre .s{color:var(--ok)}
+code.inl{font-family:var(--mono); font-size:13px}
+
+/* interactive tutor */
+.asks{display:flex; flex-wrap:wrap; gap:8px; padding:15px 16px 4px}
+.ask{
+  font-family:var(--mono); font-size:12px; line-height:1.4; text-align:left;
+  padding:8px 12px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel-2); color:var(--ink-dim);
+  transition:border-color .15s, color .15s, background .15s;
+}
+.ask:hover{border-color:var(--accent-line); color:var(--ink)}
+.ask[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent); color:var(--ink)}
+.reply{padding:8px 16px 18px; display:flex; flex-direction:column; gap:11px}
+.reply .label{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-faint);
+}
+.reply .said{font-size:14.5px; line-height:1.6}
+.reply .why{
+  font-family:var(--mono); font-size:11.5px; line-height:1.65; color:var(--ink-faint);
+  border-top:1px dashed var(--line-soft); padding-top:10px;
+}
+.mode{
+  display:inline-block; font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  text-transform:uppercase; padding:2px 8px; border-radius:999px; margin-right:7px;
+  border:1px solid currentColor;
+}
+.mode.q{color:var(--revision)} .mode.a{color:var(--ok)} .mode.h{color:var(--drift)}
+
+/* ── the loop ─────────────────────────────────────────────────────────── */
+.loop{background:var(--bg-deep)}
+.loop-steps{
+  margin-top:30px; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px; background:var(--line); border:1px solid var(--line);
+  border-radius:12px; overflow:hidden;
+}
+.step{background:var(--panel); padding:20px}
+.step .w{
+  font-family:var(--mono); font-size:15px; font-weight:600; letter-spacing:.06em;
+  color:var(--accent); text-transform:uppercase;
+  display:flex; align-items:baseline; gap:8px;
+}
+.step .i{font-size:11px; color:var(--ink-faint); font-weight:400; letter-spacing:.14em}
+.step p{font-size:14px; color:var(--ink-dim); margin-top:8px}
+
+/* ── gains ────────────────────────────────────────────────────────────── */
+.gains{display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); gap:1px;
+       margin-top:34px; background:var(--line); border:1px solid var(--line);
+       border-radius:12px; overflow:hidden}
+.gain{background:var(--panel); padding:22px 22px 24px}
+.gain .no{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--ink-faint);
+  display:block; margin-bottom:12px;
+}
+.gain h3{font-size:17.5px; margin-bottom:7px}
+.gain p{font-size:14.5px; color:var(--ink-dim)}
+
+/* ── instructor table ─────────────────────────────────────────────────── */
+.scroll{overflow-x:auto; border:1px solid var(--line); border-radius:12px;
+        background:var(--panel); box-shadow:var(--shadow)}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:14px}
+thead th{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--ink-faint); text-align:left; font-weight:500;
+  padding:12px 16px; border-bottom:1px solid var(--line); background:var(--panel-2);
+}
+tbody td{padding:12px 16px; border-bottom:1px solid var(--line-soft); vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+td.item{font-family:var(--mono); font-size:12.5px; color:var(--ink)}
+.pill{
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  padding:3px 9px; border-radius:999px; white-space:nowrap;
+}
+.pill.drift{background:var(--drift-bg); color:var(--drift)}
+.pill.bug{background:var(--bug-bg); color:var(--bug)}
+.pill.revision{background:var(--revision-bg); color:var(--revision)}
+.bar{display:flex; align-items:center; gap:9px; min-width:120px}
+.bar .track{flex:1; height:5px; background:var(--line-soft); border-radius:3px;
+            overflow:hidden; min-width:48px}
+.bar .fill{display:block; height:100%; background:var(--accent); border-radius:3px}
+.bar .pct{font-family:var(--mono); font-size:11.5px; color:var(--ink-dim);
+          font-variant-numeric:tabular-nums}
+
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1px;
+       background:var(--line); border:1px solid var(--line); border-radius:12px;
+       overflow:hidden; margin-top:30px}
+.stat{background:var(--panel); padding:18px 20px}
+.stat .v{font-family:var(--mono); font-size:25px; font-weight:600; color:var(--ink);
+         font-variant-numeric:tabular-nums; line-height:1.2}
+.stat .k{font-family:var(--mono); font-size:10.5px; letter-spacing:.13em;
+         text-transform:uppercase; color:var(--ink-faint); margin-top:6px}
+
+/* ── under the hood ───────────────────────────────────────────────────── */
+.specs{margin-top:30px; display:grid;
+       grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:26px 34px}
+.spec h3{font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+         color:var(--accent); font-weight:500; margin-bottom:9px}
+.spec p{font-size:14.5px; color:var(--ink-dim)}
+.spec code{font-family:var(--mono); font-size:12.5px; color:var(--ink); background:var(--panel-2);
+           padding:1px 5px; border-radius:4px; border:1px solid var(--line-soft)}
+
+/* ── close ────────────────────────────────────────────────────────────── */
+.close{border-bottom:0; background:var(--bg-deep)}
+.close h2{font-size:clamp(24px,3.4vw,36px); max-width:22ch}
+.close .lede{margin-top:18px}
+footer .wrap{
+  padding-block:26px; border-top:1px solid var(--line-soft);
+  display:flex; flex-wrap:wrap; gap:14px 26px; align-items:center;
+  font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); letter-spacing:.04em;
+}
+footer .sp{margin-left:auto}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important; animation-iteration-count:1!important;
+    transition-duration:.001ms!important}
+  .cursor,.caret{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="mark">M<b>U</b>SE</span>
+    <span class="mark-sub">map · understand · solve · explain</span>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#students" class="opt">Students</a>
+      <a href="#instructors">Instructors</a>
+      <a href="#build" class="opt">Under the hood</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- ─── hero ──────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="wrap">
+    <h1>Your code doesn't start with a cursor. It starts with a <em>thought</em><span class="cursor" aria-hidden="true"></span></h1>
+
+    <p class="lede">
+      You write your code. You run it. Something breaks. So you ask AI, and
+      seconds later, the answer appears. The code works.
+    </p>
+    <p class="lede">
+      But here's the question: did you learn how to solve the problem, or did
+      you simply learn how to copy the solution?
+    </p>
+
+    <p class="stance">
+      That's the question MUSE is built around. We believe AI belongs in
+      education. But its role isn't to replace the thinking. It's to make
+      students better thinkers, better problem solvers, and better programmers.
+      <b>AI should be a tutor, not a code generator.</b>
+    </p>
+
+    <!-- The specification gate, drawn rather than screenshotted. -->
+    <div class="gate">
+      <div class="pane">
+        <div class="pane-head">Specification gate <span class="right">draft · v4</span></div>
+        <div class="chat">
+          <div class="msg you"><span class="who">you</span>
+            <span class="bubble">a function that removes duplicates from a list</span></div>
+          <div class="msg muse"><span class="who">muse</span>
+            <span class="bubble">What should the input be called, and what type are the values in it?</span></div>
+          <div class="msg you"><span class="who">you</span>
+            <span class="bubble">a list of integers called items</span></div>
+          <div class="msg muse"><span class="who">muse</span>
+            <span class="bubble">Does the original order survive, or can the result come back in any order?</span></div>
+        </div>
+        <div class="composer"><span class="caret" aria-hidden="true"></span></div>
+        <div class="locked-strip">
+          editor locked · 4 of 6 rubric items answered
+        </div>
+      </div>
+
+      <div class="pane">
+        <div class="pane-head">Rubric <span class="right">4 / 6</span></div>
+        <div class="meter"><i></i></div>
+        <div class="rubric">
+          <ul>
+            <li class="done"><span class="box" aria-hidden="true">✓</span><span>state in one sentence what the function does</span></li>
+            <li class="done"><span class="box" aria-hidden="true">✓</span><span>name the input list and the type of its elements</span></li>
+            <li class="done"><span class="box" aria-hidden="true">✓</span><span>state what is returned and its type</span></li>
+            <li class="done"><span class="box" aria-hidden="true">✓</span><span>state whether the original order is preserved</span></li>
+            <li class="now"><span class="box" aria-hidden="true"></span><span>state the behaviour for an empty list</span></li>
+            <li><span class="box" aria-hidden="true"></span><span>give at least one concrete input/output example</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── the question ──────────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The question</p>
+    <h2 class="band-title" style="max-width:24ch">
+      How do we make AI help students think instead of thinking for them?
+    </h2>
+
+    <p class="beat">
+      You write your code.<br>
+      You run it.<br>
+      It doesn't work.<br>
+      You ask AI.<br>
+      <b>The code works. But did you?</b>
+    </p>
+
+    <div class="split">
+      <div class="claim">
+        <span class="tag">what happens now</span>
+        <h3>When AI solves the problem before you understand it, what exactly have you learned?</h3>
+        <p>
+          A student reads "remove duplicates while preserving order" and starts
+          typing. The assistant completes the function. The tests pass.
+        </p>
+        <p style="margin-top:12px">
+          But nobody asked what should happen when the list is empty. The student
+          doesn't know, because the question was never part of the process. The
+          code works. The understanding never had a chance.
+        </p>
+      </div>
+      <div class="claim lit">
+        <span class="tag">what MUSE changes</span>
+        <h3>The thinking comes first. And this time, it's written down.</h3>
+        <p>
+          Before writing a single line of code, the student defines what they
+          want to build: the inputs, outputs, edge cases, and a worked example.
+          That specification stays locked.
+        </p>
+        <p style="margin-top:12px">
+          Once the editor opens, the code is checked against the student's
+          original plan. So when the student forgets to consider an empty list,
+          it's no longer an invisible gap. It's something they can identify,
+          explain, and learn from.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── phase 1 ───────────────────────────────────────────────────────── -->
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow"><span class="n">Phase 01</span> Specification gate</p>
+    <div class="phase">
+      <div>
+        <h2>Before you write a single line of code, put your idea into words.</h2>
+        <p class="lede">
+          Not code. Not a guess at what the AI wants to hear. Your understanding
+          of the problem.
+        </p>
+        <p class="lede">
+          When something is unclear, MUSE doesn't fill in the blanks. It asks
+          questions. The editor stays locked until you've worked through the
+          problem clearly enough to begin.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k">Enforced</span>
+            <span class="v">The rubric is validated in Python, not negotiated with the model.</span>
+            <span class="v">An empty <b>examples</b> field cannot be persuaded into counting as
+              complete. If a required field is missing, the gate stays closed.</span>
+          </div>
+          <div class="row"><span class="k">Guarded</span>
+            <span class="v">If the model infers information from the assignment instead of the
+              student's own words, that information is discarded before storage.</span>
+            <span class="v"><b>A student doesn't get credit for an answer they never gave.</b></span>
+          </div>
+          <div class="row"><span class="k">Stuck?</span>
+            <span class="v">Say "I don't know."</span>
+            <span class="v">MUSE explains what the question means and gives you meaningful
+              options to choose from. It helps you understand the decision without
+              making it for you.</span>
+          </div>
+          <div class="row"><span class="k">Escape</span>
+            <span class="v">Asked twice about the same genuinely ambiguous point? You can say
+              "My answer stands."</span>
+            <span class="v">Sometimes you have a reason to keep your answer. MUSE respects that.
+              <b>The gate is a guide, not a bouncer.</b></span>
+          </div>
+        </div>
+      </div>
+      <figure>
+        <div class="card">
+          <div class="pane-head">Your specification <span class="right">locked · v7</span></div>
+<pre><span class="c"># Frozen the moment the editor unlocked.</span>
+<span class="c"># Your code is checked against this exact specification.</span>
+<span class="c"># That makes drift measurable, not debatable.</span>
+
+{
+    <span class="s">"goal"</span>: <span class="s">"Remove duplicate values while keeping the first "</span>
+            <span class="s">"occurrence of each and preserving the original order"</span>,
+
+    <span class="s">"inputs"</span>: [
+        {<span class="s">"name"</span>: <span class="s">"items"</span>, <span class="s">"type"</span>: <span class="s">"list[int]"</span>}
+    ],
+
+    <span class="s">"outputs"</span>: [
+        {<span class="s">"name"</span>: <span class="s">"unique"</span>, <span class="s">"type"</span>: <span class="s">"list[int]"</span>}
+    ],
+
+    <span class="s">"edge_cases"</span>: [
+        <span class="s">"An empty list returns an empty list"</span>
+    ],
+
+    <span class="s">"examples"</span>: [
+        {<span class="s">"input"</span>: <span class="s">"[1, 1, 2]"</span>, <span class="s">"output"</span>: <span class="s">"[1, 2]"</span>}
+    ]
+}</pre>
+        </div>
+        <figcaption>Version 7 of 7 · every earlier draft is preserved</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── phase 2 ───────────────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow"><span class="n">Phase 02</span> Guided implementation</p>
+    <div class="phase">
+      <div>
+        <h2>Now comes the code. No autocomplete. No solution waiting to be copied.</h2>
+        <p class="lede">
+          You write. And when you get stuck, MUSE doesn't take the problem away
+          from you. Instead of saying "here's the corrected code", it asks:
+          "what value do you expect here?"
+        </p>
+        <p class="lede">
+          Because sometimes the most useful answer isn't an answer at all. It's
+          the question that helps you discover the answer yourself.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k">No ghost text</span>
+            <span class="v">The editor runs with autocomplete and inline suggestions disabled.</span>
+            <span class="v"><b>Nothing writes ahead of you. Every line is yours.</b></span>
+          </div>
+          <div class="row"><span class="k">Ask freely</span>
+            <span class="v">Have a question about Python? Get a direct answer. There's nothing
+              educational about making someone struggle to understand what
+              <code class="inl">enumerate()</code> does.</span>
+            <span class="v">But when you ask about your own program, MUSE helps you investigate
+              instead of handing you the fix.</span>
+          </div>
+          <div class="row"><span class="k">A way forward</span>
+            <span class="v">Genuinely stuck? You can request a direct hint.</span>
+            <span class="v">It's available when you need it, and it's counted as part of your
+              session. Not as a punishment, but as a way to understand how you use
+              assistance.</span>
+          </div>
+        </div>
+      </div>
+      <figure>
+        <div class="card">
+          <div class="pane-head">Tutor <span class="right">pick one</span></div>
+          <div class="asks" id="asks"></div>
+          <div class="reply" id="reply"></div>
+        </div>
+        <figcaption>Real classifications and responses from the tutor layer</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── phase 3 ───────────────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow"><span class="n">Phase 03</span> Reflection</p>
+    <div class="phase">
+      <div>
+        <h2>When the code is finished, MUSE looks back at where you started.</h2>
+        <p class="lede">
+          What did you say you wanted to build? What did you actually build? If
+          there's a difference, MUSE doesn't simply mark your work as wrong. It
+          asks you to examine it.
+        </p>
+        <p class="lede">
+          You notice the difference. You understand it. You explain it. Then you
+          fix it. Because writing code is only part of learning to program.
+          Understanding your decisions is the rest.
+        </p>
+        <div class="detail">
+          <div class="row" style="border-left-color:var(--drift)"><span class="k" style="color:var(--drift)">Drift</span>
+            <span class="v">Your specification says one thing. Your code does another.</span>
+            <span class="v"><b>And nothing in your session shows that you noticed.</b></span>
+          </div>
+          <div class="row" style="border-left-color:var(--revision)"><span class="k" style="color:var(--revision)">Revision</span>
+            <span class="v">You changed your mind deliberately. That's completely valid.</span>
+            <span class="v">But calling something a revision requires an actual quote from your
+              conversation. <b>No quote, no revision.</b></span>
+          </div>
+          <div class="row" style="border-left-color:var(--bug)"><span class="k" style="color:var(--bug)">Bug</span>
+            <span class="v">Your code is trying to do what you specified, but it isn't doing it
+              correctly.</span>
+          </div>
+          <div class="row"><span class="k">Required</span>
+            <span class="v"><b>Nothing gets submitted until every difference has an explanation in
+              your own words.</b></span>
+          </div>
+        </div>
+      </div>
+      <figure>
+        <div class="card">
+          <div class="pane-head">Behavioural difference <span class="right">1 difference detected</span></div>
+          <div style="padding:16px; display:flex; flex-direction:column; gap:13px">
+            <div><span class="pill drift">drift</span></div>
+            <p style="font-size:15px; line-height:1.6">
+              Your specification says the accepted range is <b>18 to 60</b>.
+              Your code accepts <b>16</b>.
+            </p>
+            <p style="font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--ink-dim);
+                      border-left:2px solid var(--accent); padding-left:13px">
+              You specified a range of 18 to 60,<br>
+              but your code accepts 16. What happened?
+            </p>
+            <div style="border-top:1px dashed var(--line-soft); padding-top:12px">
+              <span style="font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+                    text-transform:uppercase; color:var(--ink-faint)">your explanation · required</span>
+              <p style="font-size:14.5px; margin-top:7px; color:var(--ink-dim)">
+                I wrote <code class="inl">&gt;= 16</code> without thinking because I copied the
+                structure of an earlier check. My specification is the range I actually
+                intended.
+              </p>
+            </div>
+          </div>
+        </div>
+        <figcaption>MUSE makes you account for the difference</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── the loop ──────────────────────────────────────────────────────── -->
+<section class="loop">
+  <div class="wrap">
+    <p class="eyebrow">The loop</p>
+    <h2 class="band-title" style="max-width:24ch">MUSE turns programming into five steps, in that order.</h2>
+    <div class="loop-steps">
+      <div class="step"><div class="w"><span class="i">01</span> Think</div>
+        <p>Describe what you want to build, in your own words.</p></div>
+      <div class="step"><div class="w"><span class="i">02</span> Plan</div>
+        <p>Define the inputs, outputs, edge cases, and one worked example.</p></div>
+      <div class="step"><div class="w"><span class="i">03</span> Code</div>
+        <p>Write the program yourself. Nothing types ahead of you.</p></div>
+      <div class="step"><div class="w"><span class="i">04</span> Reflect</div>
+        <p>Compare what your program does with what you originally planned.</p></div>
+      <div class="step"><div class="w"><span class="i">05</span> Improve</div>
+        <p>Explain every difference. Then make the necessary changes.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── students ──────────────────────────────────────────────────────── -->
+<section id="students">
+  <div class="wrap">
+    <p class="eyebrow">For students</p>
+    <h2 class="band-title" style="max-width:22ch">What you take away that a finished assignment alone can't give you.</h2>
+    <div class="gains">
+      <div class="gain">
+        <span class="no">01</span>
+        <h3>The habit of deciding first</h3>
+        <p>Inputs. Outputs. Edge cases. A worked example.</p>
+        <p style="margin-top:9px">Before writing a line of code, you learn to define the problem. It's the
+           same discipline behind a design document, a development ticket, and an
+           API contract.</p>
+      </div>
+      <div class="gain">
+        <span class="no">02</span>
+        <h3>Edge cases you chose yourself</h3>
+        <p>Empty inputs. Zero. Negative values.</p>
+        <p style="margin-top:9px">You decide what should happen and write it down. So when your code
+           behaves differently, you can recognize the difference between an
+           intentional decision and an overlooked case.</p>
+      </div>
+      <div class="gain">
+        <span class="no">03</span>
+        <h3>The ability to debug independently</h3>
+        <p>"What value do you expect here?"</p>
+        <p style="margin-top:9px">It's a question you'll learn to ask yourself, even when the tutor isn't
+           there.</p>
+      </div>
+      <div class="gain">
+        <span class="no">04</span>
+        <h3>The language to explain your own code</h3>
+        <p>Explaining differences in your own words is a skill that carries into code
+           reviews, stand ups, technical interviews, and everyday collaboration.</p>
+      </div>
+      <div class="gain">
+        <span class="no">05</span>
+        <h3>An honest picture of your learning habits</h3>
+        <p>How many questions did you ask? How many were about Python itself, and how
+           many were about your own program? How many hints did you use? How many
+           drafts did your plan go through?</p>
+        <p style="margin-top:9px">MUSE makes these patterns visible without turning them into a grade.</p>
+      </div>
+      <div class="gain">
+        <span class="no">06</span>
+        <h3>A record of your thinking, not just a grade</h3>
+        <p>Every draft, question, and answer is preserved and readable. You can trace
+           how your understanding developed, where you got stuck, and how your
+           decisions changed.</p>
+        <p style="margin-top:9px"><b style="color:var(--ink);font-weight:600">A green checkmark shows
+           completion. Your history shows the learning.</b></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── instructors ───────────────────────────────────────────────────── -->
+<section id="instructors">
+  <div class="wrap">
+    <p class="eyebrow">For instructors</p>
+    <div class="phase">
+      <div>
+        <h2>Finally, visibility into how students think, not just whether they finished.</h2>
+        <p class="lede">
+          MUSE gives instructors insight into where students struggled, what they
+          misunderstood, and what the class may need to explore next.
+        </p>
+        <p class="lede">
+          Instead of seeing thirty separate mistakes, instructors can see when an
+          entire cohort shares the same misconception. Every difference is grouped
+          by the concept it concerns, turning scattered errors into patterns that
+          are easier to understand.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k">Class view</span>
+            <span class="v">See where students' code diverged from their own specifications.</span>
+            <span class="v">A straightforward database grouping, with no AI required at read time.
+              The result is fast, transparent, and consistent.</span>
+          </div>
+          <div class="row"><span class="k">Student view</span>
+            <span class="v">Explore the complete learning journey:</span>
+            <ul class="bullets">
+              <li>Full specification history</li>
+              <li>Question logs and classifications</li>
+              <li>Every detected difference</li>
+              <li>The student's own explanation of each difference</li>
+            </ul>
+          </div>
+          <div class="row"><span class="k">On demand</span>
+            <span class="v">Generate a written summary of a student's work when you need it.</span>
+            <span class="v">It's the only AI call on the dashboard, triggered by a button rather
+              than running automatically.</span>
+          </div>
+          <div class="row"><span class="k">Rubrics</span>
+            <span class="v"><b>Your rubric. Your rules.</b></span>
+            <span class="v">Each item can be a field validated directly in code or a judgment based
+              requirement. You decide which approach to use.</span>
+          </div>
+        </div>
+      </div>
+      <figure>
+        <span class="sub-label" style="margin-top:0">What students got wrong</span>
+        <div class="scroll" style="margin-top:26px">
+          <table>
+            <thead>
+              <tr><th scope="col">Item</th><th scope="col">Type</th><th scope="col">Share of class</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="item">edge_case: negative n returns []</td>
+                <td><span class="pill drift">drift</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:50%"></i></span><span class="pct">50%</span></div></td>
+              </tr>
+              <tr>
+                <td class="item">outputs</td>
+                <td><span class="pill drift">drift</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:50%"></i></span><span class="pct">50%</span></div></td>
+              </tr>
+              <tr>
+                <td class="item">examples[0]</td>
+                <td><span class="pill bug">bug</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:38%"></i></span><span class="pct">38%</span></div></td>
+              </tr>
+              <tr>
+                <td class="item">edge_case: empty list returns []</td>
+                <td><span class="pill drift">drift</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:25%"></i></span><span class="pct">25%</span></div></td>
+              </tr>
+              <tr>
+                <td class="item">inputs</td>
+                <td><span class="pill revision">revision</span></td>
+                <td><div class="bar"><span class="track"><i class="fill" style="width:25%"></i></span><span class="pct">25%</span></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <figcaption>Example cohort · half the class made the same unspoken assumption</figcaption>
+
+        <span class="sub-label">Cohort snapshot</span>
+        <div class="stats">
+          <div class="stat"><div class="v">80%</div><div class="k">questions about their own code</div></div>
+          <div class="stat"><div class="v">5.9</div><div class="k">mean drafts before coding</div></div>
+          <div class="stat"><div class="v">5</div><div class="k">direct hints taken</div></div>
+        </div>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── dependency profile ────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Dependency profile</p>
+    <div class="phase">
+      <div>
+        <h2>A mirror pointed at the student, and nobody else by default.</h2>
+        <p class="lede">
+          MUSE tracks how you use its help. Not to judge you. To help you
+          recognize your own patterns.
+        </p>
+        <div class="detail">
+          <div class="row"><span class="k">It records</span>
+            <ul class="bullets">
+              <li>Total questions asked</li>
+              <li>Questions about Python versus your own code</li>
+              <li>Hints taken</li>
+              <li>Topics you returned to</li>
+              <li>Time between opening an assignment and asking for help</li>
+            </ul>
+          </div>
+          <div class="row"><span class="k">Not a grade</span>
+            <span class="v">Your dependency profile is never part of your mark.</span>
+            <span class="v">It's a reflection tool, designed to reveal patterns you might
+              otherwise miss.</span>
+          </div>
+          <div class="row"><span class="k">Not shared by default</span>
+            <span class="v">The profile is student facing by default. Instructor access requires
+              explicit, <b>course level opt in stored in the data model</b>, not merely a
+              toggle on a page.</span>
+            <span class="v">Without that permission, the instructor endpoint refuses the request
+              outright.</span>
+          </div>
+        </div>
+      </div>
+      <figure>
+        <div class="card">
+          <div class="pane-head">Your profile <span class="right">self reflection only</span></div>
+          <div style="padding:6px 16px 16px">
+            <div class="rubric" style="padding:0">
+              <ul>
+                <li class="done" style="grid-template-columns:1fr auto"><span>questions asked</span><span style="color:var(--ink)">14</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>about your own code</span><span style="color:var(--ink)">9 · 64%</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>about Python itself</span><span style="color:var(--ink)">5</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>direct hints taken</span><span style="color:var(--drift)">1</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>drafts before coding</span><span style="color:var(--ink)">7</span></li>
+                <li class="done" style="grid-template-columns:1fr auto"><span>first question asked after</span><span style="color:var(--ink)">4 min</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <figcaption>No AI involved · arithmetic over your own session data</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ─── under the hood ────────────────────────────────────────────────── -->
+<section id="build">
+  <div class="wrap">
+    <p class="eyebrow">Under the hood</p>
+    <h2 class="band-title" style="max-width:26ch">
+      The rules students rely on are enforced in code, not left to a prompt.
+    </h2>
+    <p class="lede" style="margin-top:16px">
+      Ask a model nicely not to give away the answer, and it might still do
+      exactly that. MUSE takes a different approach. Anything a student depends
+      on is enforced through checks that run regardless of what the model says.
+    </p>
+    <div class="specs">
+      <div class="spec">
+        <h3>Rubric floor</h3>
+        <p>An unanswered structural item is marked as unmet in Python before any model
+           is consulted. If a classifier returns <code>gap: null</code> for an empty
+           plan, the editor stays locked.</p>
+      </div>
+      <div class="spec">
+        <h3>Extraction guard</h3>
+        <p>If the model fills in a field using information from the assignment rather
+           than the student's own words, that information is discarded. The extracted
+           data is matched back against what the student actually wrote.</p>
+      </div>
+      <div class="spec">
+        <h3>Sandboxed execution</h3>
+        <p>Every test case runs in a fresh subprocess with a wall clock timeout. On
+           POSIX systems, CPU, address space, and file size limits are applied.</p>
+      </div>
+      <div class="spec">
+        <h3>Two providers</h3>
+        <p>Mistral is the primary provider, with Groq available for failover. Both sit
+           behind a single <code>generate_structured()</code> interface. A circuit
+           breaker prevents repeated requests to a provider experiencing rate limits.</p>
+      </div>
+      <div class="spec">
+        <h3>Runs offline</h3>
+        <p>A deterministic stub replaces both providers during offline testing. That
+           means the entire flow, from specification gate to tutor to reflection, can
+           be tested without an API key or network connection.</p>
+      </div>
+      <div class="spec">
+        <h3>Everything is preserved</h3>
+        <p>Every specification version, gate turn, code snapshot, question, and
+           detected difference is stored as a row. The reflection statistics are
+           queries, not AI generated summaries.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── close ─────────────────────────────────────────────────────────── -->
+<section class="close">
+  <div class="wrap">
+    <p class="eyebrow">In short</p>
+    <h2>We don't want AI to write better code for students. We want it to help students become better programmers.</h2>
+    <p class="lede">
+      The future of education isn't about choosing between humans and AI. It's
+      about designing AI to support human learning.
+    </p>
+    <p class="lede">
+      MUSE is deliberately different from assistants that prioritize delivering a
+      finished solution. It won't simply hand you a function when you ask for one.
+      Instead, it helps you understand the problem, make your own decisions, and
+      recognize where your implementation differs from your intentions.
+    </p>
+    <p class="lede">
+      By the time you write the code, you should know what you're building, and
+      know that the decision was yours.
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>MUSE · a programming tutor that asks instead of answering</span>
+    <span class="sp">Think · Plan · Code · Reflect · Improve</span>
+  </div>
+</footer>
+
+<script>
+/* The tutor demo. Four real shapes of question and what each one gets back.
+   The interesting claim on this page is that they are treated differently, so
+   the demo has to let you try all four yourself. */
+var ASKS = [
+  {
+    q: "What does enumerate() do?",
+    kind: "factual",
+    mode: ["a", "answered"],
+    a: "It pairs each item with its position. <code class=\"inl\">for i, item in enumerate(xs)</code> gives you the index and the value together, starting at 0 unless you pass <code class=\"inl\">start=</code>.",
+    why: "This question is about Python itself, not about your solution. There's nothing educational about making you guess."
+  },
+  {
+    q: "My list has one number too many. Why?",
+    kind: "problem_solving",
+    mode: ["q", "counter question"],
+    a: "How many numbers does your own example say should be returned, and how many times does your loop body run for that input?",
+    why: "This question concerns your own program. Answering it directly would hand you the fix and take the debugging away from you."
+  },
+  {
+    q: "Just write the function for me.",
+    kind: "problem_solving",
+    mode: ["q", "counter question"],
+    a: "Not that one, it's the assignment. But I'll work through it with you a step at a time: what does your plan say should come back when the list is empty?",
+    why: "Declining is the design, not a limitation. The direct hint button is always there when you're genuinely stuck."
+  },
+  {
+    q: "I'm stuck. Give me a direct hint.",
+    kind: "escape hatch",
+    mode: ["h", "direct hint"],
+    a: "Look at the line that decides how many times the loop runs, and compare it with the count in your example.",
+    why: "You asked for it explicitly, so you get it. Recorded in your own dependency profile, visible to you, and never part of any grade."
+  }
+];
+
+var asksEl = document.getElementById("asks");
+var replyEl = document.getElementById("reply");
+
+ASKS.forEach(function (item, index) {
+  var button = document.createElement("button");
+  button.className = "ask";
+  button.type = "button";
+  button.textContent = item.q;
+  button.setAttribute("aria-pressed", index === 1 ? "true" : "false");
+  button.addEventListener("click", function () { show(index); });
+  asksEl.appendChild(button);
+});
+
+function show(index) {
+  var item = ASKS[index];
+  Array.prototype.forEach.call(asksEl.children, function (b, i) {
+    b.setAttribute("aria-pressed", String(i === index));
+  });
+  replyEl.innerHTML =
+    '<span class="label">classified as: ' + item.kind + '</span>' +
+    '<p class="said"><span class="mode ' + item.mode[0] + '">' + item.mode[1] + '</span>' + item.a + '</p>' +
+    '<p class="why">' + item.why + '</p>';
+}
+
+/* Opens on the counter question, which is the behaviour worth seeing first. */
+show(1);
+</script>
+</body>
+</html>
