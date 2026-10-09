@@ -225,7 +225,12 @@ if PICS.is_dir():
 if FRONTEND.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")
 
+    # The student lands on their overview; the tutoring flow lives at /learn.
     @app.get("/", include_in_schema=False)
+    def home():
+        return FileResponse(str(FRONTEND / "home.html"))
+
+    @app.get("/learn", include_in_schema=False)
     def index():
         return FileResponse(str(FRONTEND / "index.html"))
 
