@@ -1,0 +1,25 @@
+# Render blueprint. With this file in the repo, Render reads the whole setup
+# from here instead of asking you to fill a form.
+#
+# The two API keys are deliberately NOT in this file. `sync: false` means
+# Render prompts you for them once in its dashboard and stores them itself, so
+# no key is ever committed to the repository.
+services:
+  - type: web
+    name: muse
+    runtime: docker
+    plan: free
+    # Closest Render region to Beirut. Judges clicking from Lebanon get the
+    # shortest round trip; the free plan is the same everywhere else.
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    # /api/health reports whether real providers loaded or the offline stub is
+    # running, so a green health check also tells you the keys were picked up.
+    healthCheckPath: /api/health
+    envVars:
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: MUSE_PRIMARY
+        value: mistral
