@@ -355,3 +355,33 @@ header.top #change-mode { display: none !important; }
 /* The second line only appears once the tab has slid up. */
 .muse-side .side-switch .ss-more { opacity: 0; transition: opacity .2s; }
 .muse-side .side-switch:hover .ss-more, .muse-side .side-switch:focus-visible .ss-more { opacity: .9; }
+
+/* Phone layout: the same bottom tab bar as the other student pages. */
+@media (max-width: 860px) {
+  .learn-page .learn-col { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+  .learn-page .muse-side {
+    position: fixed; top: auto; left: 0; right: 0; bottom: 0; z-index: 800;
+    height: auto; display: block;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: #fff; border: 0; border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 16px rgba(15, 58, 36, .06);
+  }
+  .learn-page .muse-side .logo, .learn-page .muse-side .logo-tag,
+  .learn-page .muse-side .side-switch { display: none !important; }
+  .learn-page .muse-side .nav { flex-direction: row; justify-content: space-between; gap: 4px; margin: 0; overflow: visible; }
+  .learn-page .muse-side .nav-item {
+    flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center;
+    height: auto; padding: 9px 2px 7px; gap: 6px; border-width: 1.5px; border-radius: 12px;
+    font-size: 11px; font-weight: 800; text-align: center;
+  }
+  .learn-page .muse-side .nav-item span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .learn-page .muse-side .ico { width: 25px; height: 25px; }
+  .learn-page header.top { padding: 16px 20px; }
+  .learn-page main { padding: 22px 16px 40px; }
+  .meme-toggle { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 860px) {
+  .learn-page .muse-side .nav { gap: 2px; }
+  .learn-page .muse-side .nav-item { padding: 9px 0 7px; font-size: 10.5px; letter-spacing: -.1px; }
+  .learn-page .muse-side .nav-item span { overflow: visible; text-overflow: clip; }
+}

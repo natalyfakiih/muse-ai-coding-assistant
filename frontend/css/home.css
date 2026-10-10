@@ -409,3 +409,113 @@ svg { display: block; }
 /* The second line only appears once the tab has slid up. */
 .side .side-switch .ss-more { opacity: 0; transition: opacity .2s; }
 .side .side-switch:hover .ss-more, .side .side-switch:focus-visible .ss-more { opacity: .9; }
+
+/* ===================================================================
+   Phone layout (860px and narrower)
+   - the sidebar becomes a tab bar fixed to the bottom of the screen,
+     icon above label, the current page in a green box
+   - the top bar keeps the breadcrumb, streak, bell and avatar
+   - the overview adds "Your journey at a glance"
+   =================================================================== */
+.journey { display: none; }           /* phone only */
+
+@media (max-width: 860px) {
+  .shell { grid-template-columns: minmax(0, 1fr); background: none; }
+  .main { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+
+  /* bottom tab bar */
+  .side {
+    position: fixed; top: auto; left: 0; right: 0; bottom: 0; z-index: 800;
+    height: auto; display: block;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: var(--h-surface);
+    border: 0; border-top: 1px solid var(--h-line);
+    box-shadow: 0 -4px 16px rgba(15, 58, 36, .06);
+  }
+  .side .logo, .side .logo-tag, .side .side-switch { display: none !important; }
+  .side .nav { flex-direction: row; justify-content: space-between; gap: 4px; margin: 0; overflow: visible; }
+  .side .nav-item {
+    flex: 1 1 0; min-width: 0;
+    flex-direction: column; justify-content: center;
+    height: auto; padding: 9px 2px 7px; gap: 6px;
+    border-width: 1.5px; border-radius: 12px;
+    font-size: 11px; font-weight: 800; text-align: center;
+  }
+  .side .nav-item span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .side .ico { width: 25px; height: 25px; }
+
+  /* top bar */
+  .topbar { height: auto; flex-wrap: nowrap; padding: 18px 20px; gap: 10px; }
+  .crumbs { font-size: 16px; gap: 10px; min-width: 0; }
+  .crumb-muted { white-space: nowrap; }
+  .top-stats { gap: 16px; }
+  .stat-xp { display: none; }
+  .bell { margin-left: 4px; }
+  .avatar { width: 40px; height: 40px; margin-left: 4px; font-size: 16px; }
+
+  /* content */
+  .content { padding: 26px 20px 28px; }
+  .greet-row { flex-direction: column; gap: 0; }
+  .greet { font-size: 30px; line-height: 1.25; }
+  .greet-sub { font-size: 15px; margin-top: 12px; }
+  .date { display: none; }
+  .grid { grid-template-columns: minmax(0, 1fr); gap: 26px; margin-top: 26px; }
+
+  /* hero: text left, Ollie beside it */
+  .hero { min-height: 0; padding: 26px 20px 28px; }
+  .hero-text { max-width: 64%; }
+  .hero-h { font-size: 25px; margin-top: 14px; }
+  .hero-p { font-size: 14.5px; line-height: 1.7; margin-top: 14px; }
+  .btn-green { margin-top: 22px; height: 46px; padding: 0 22px; font-size: 14.5px; }
+  .ollie { height: 175px; right: -6px; bottom: auto; top: 50%; transform: translateY(-38%); animation: none; }
+  .star-1 { width: 17px; height: 17px; top: 26px; right: 130px; bottom: auto; }
+  .star-2 { width: 22px; height: 22px; top: 50px; right: 14px; }
+
+  /* your journey at a glance */
+  .journey { display: block; }
+  .journey-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .journey-head h2 { margin: 0; font-size: 19px; font-weight: 900; }
+  .journey-more { display: inline-flex; align-items: center; gap: 4px; color: var(--h-green); font-size: 14.5px; font-weight: 800; white-space: nowrap; }
+  .journey-more svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .journey-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+  .jcard {
+    display: flex; flex-direction: column; gap: 10px; min-width: 0;
+    padding: 14px 12px; background: var(--h-surface);
+    border: 1.5px solid var(--h-line); border-radius: 12px;
+  }
+  .j-ico { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; background: var(--t-soft); }
+  .j-ico svg { width: 20px; height: 20px; fill: none; stroke: var(--t); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .j-green { --t: #1f9d55; --t-soft: #e3f5e7; }
+  .j-orange { --t: #e9821b; --t-soft: #fff1d6; }
+  .j-blue { --t: #1f7fd6; --t-soft: #e3f1fd; }
+  .j-label { font-size: 12px; font-weight: 700; color: var(--h-ink-2); line-height: 1.3; }
+  .j-val { font-size: 13px; font-weight: 700; color: var(--h-ink); white-space: nowrap; }
+  .j-val b { font-size: 26px; font-weight: 900; margin-right: 2px; }
+}
+@media (max-width: 380px) {
+  .journey-grid { gap: 8px; }
+  .jcard { padding: 12px 9px; }
+  .j-val b { font-size: 22px; }
+  .hero-text { max-width: 70%; }
+  .ollie { height: 150px; }
+}
+
+/* Phone layout, fine-tuning: full tab labels, one-line button and heading. */
+@media (max-width: 860px) {
+  .side .nav { gap: 2px; }
+  .side .nav-item { padding: 9px 0 7px; font-size: 10.5px; letter-spacing: -.1px; }
+  .side .nav-item span { overflow: visible; text-overflow: clip; }
+  .crumb-current { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .eyebrow { font-size: 11px; letter-spacing: 2px; }
+  .hero-text { max-width: 70%; }
+  .hero-h { font-size: 23px; }
+  .btn-green { white-space: nowrap; padding: 0 18px; gap: 10px; }
+  .ollie { height: 160px; right: -10px; }
+  .journey-head h2 { font-size: 18px; white-space: nowrap; }
+}
+@media (max-width: 860px) {
+  .star-1 { top: 22px; right: 70px; }
+  .crumbs { font-size: 15px; gap: 8px; }
+  .crumb-sep { width: 16px; height: 16px; }
+  .top-stats { gap: 12px; }
+}
