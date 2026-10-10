@@ -15,6 +15,7 @@
   $("avatar").setAttribute("aria-label", STUDENT.name);
   $("top-streak").textContent = STUDENT.streak;
   $("streak-days").textContent = STUDENT.streak;
+  $("journey-streak").textContent = STUDENT.streak;
   $("top-xp").textContent = STUDENT.xp;
   $("today").textContent = today.toLocaleDateString("en-US",
     { weekday: "long", month: "long", day: "numeric" });
